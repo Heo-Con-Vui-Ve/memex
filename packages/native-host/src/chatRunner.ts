@@ -1,4 +1,4 @@
-import type { HostErrorCode, MessageRow } from "@notepad-ai/shared";
+import type { HostErrorCode, MessageRow } from "@memex/shared";
 import { runClaude, type RunHandle } from "./claudeRunner.js";
 import { appendMessage, getNote, listMessages } from "./db.js";
 

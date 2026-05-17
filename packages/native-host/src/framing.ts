@@ -1,5 +1,5 @@
 import { Transform, type TransformCallback } from "node:stream";
-import { MAX_NATIVE_MESSAGE_BYTES } from "@notepad-ai/shared";
+import { MAX_NATIVE_MESSAGE_BYTES } from "@memex/shared";
 
 const LENGTH_PREFIX_BYTES = 4;
 

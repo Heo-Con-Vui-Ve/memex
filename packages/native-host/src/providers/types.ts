@@ -1,4 +1,4 @@
-import type { HostErrorCode } from "@notepad-ai/shared";
+import type { HostErrorCode } from "@memex/shared";
 
 export type ProviderName = "claude" | "openai" | "ollama";
 

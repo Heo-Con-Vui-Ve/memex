@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FolderRow, NoteRow } from "@notepad-ai/shared";
-import { newNote } from "@notepad-ai/shared";
+import type { FolderRow, NoteRow } from "@memex/shared";
+import { newNote } from "@memex/shared";
 import { is, request } from "../lib/rpc";
 import { Icon } from "../lib/Icons";
 import { NotesList } from "./notes/NotesList";
@@ -232,7 +232,7 @@ function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () =>
         <>
           <strong>Native host chưa register.</strong>
           <pre>{`cd /Users/trantan/Dev/Personal/notepad-ai
-pnpm host:install -- --extension-id ${chrome.runtime.id}`}</pre>
+pnpm host:install --extension-id ${chrome.runtime.id}`}</pre>
           <span>Sau đó <kbd>⌘Q</kbd> quit Chrome và mở lại.</span>
         </>
       ) : (

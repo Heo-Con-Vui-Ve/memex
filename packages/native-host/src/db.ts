@@ -8,7 +8,7 @@ import type {
   MessageRow,
   NoteRow,
   ChatRole,
-} from "@notepad-ai/shared";
+} from "@memex/shared";
 import { getDbPath } from "./paths.js";
 
 let db: Database.Database | null = null;

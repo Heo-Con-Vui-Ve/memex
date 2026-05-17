@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { FolderRow, NoteRow } from "@notepad-ai/shared";
+import type { FolderRow, NoteRow } from "@memex/shared";
 import { is, request } from "../../lib/rpc";
 import { Icon } from "../../lib/Icons";
 import { AiActionBar } from "./AiActionBar";

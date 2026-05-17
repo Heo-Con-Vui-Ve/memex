@@ -1,4 +1,4 @@
-import type { NoteRow } from "@notepad-ai/shared";
+import type { NoteRow } from "@memex/shared";
 
 interface Props {
   notes: NoteRow[];

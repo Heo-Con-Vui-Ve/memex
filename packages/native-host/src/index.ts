@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import type { HostRequest, HostResponse } from "@notepad-ai/shared";
+import type { HostRequest, HostResponse } from "@memex/shared";
 import { MessageFramer, encodeMessage } from "./framing.js";
 import { runClaude, detectClaude, type RunHandle } from "./claudeRunner.js";
 void appendMessage;
@@ -30,7 +30,8 @@ import {
   setSetting,
 } from "./db.js";
 import { runChat } from "./chatRunner.js";
-import type { HostErrorCode } from "@notepad-ai/shared";
+import { getActiveProvider, getProviderByName, type ProviderName } from "./providers/index.js";
+import type { HostErrorCode } from "@memex/shared";
 
 const require = createRequire(import.meta.url);
 const pkg: { version: string } = require("../package.json");
@@ -257,6 +258,71 @@ async function handle(req: HostRequest): Promise<void> {
       } catch (err) {
         write(errResp(req.requestId, "INTERNAL", (err as Error).message));
       }
+      return;
+    }
+
+    case "provider.test": {
+      const providerName = (req.payload.provider ??
+        ((openDb(), getSetting("ai.provider")) as ProviderName | null) ??
+        "claude") as ProviderName;
+      const provider = req.payload.provider ? getProviderByName(providerName) : getActiveProvider();
+      const start = Date.now();
+      let collected = "";
+      let settled = false;
+      const ctrl = new AbortController();
+      // 15s ceiling on the test so we don't hang the Settings UI.
+      const timer = setTimeout(() => { if (!settled) ctrl.abort(); }, 15000);
+      provider.stream(
+        "Reply with exactly the word: OK",
+        ctrl.signal,
+        {
+          onChunk: (text) => {
+            collected += text;
+            // Once we have a few characters we have enough proof.
+            if (collected.length > 8) ctrl.abort();
+          },
+          onDone: () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            write({
+              requestId: req.requestId,
+              type: "provider.test.result",
+              provider: provider.name,
+              ok: true,
+              latencyMs: Date.now() - start,
+              sample: collected.trim().slice(0, 200),
+            });
+          },
+          onError: (_code, message) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            // If we already got some output, consider it a success — the
+            // abort we issued to short-circuit will look like a CANCELLED.
+            if (collected.length > 0) {
+              write({
+                requestId: req.requestId,
+                type: "provider.test.result",
+                provider: provider.name,
+                ok: true,
+                latencyMs: Date.now() - start,
+                sample: collected.trim().slice(0, 200),
+              });
+            } else {
+              write({
+                requestId: req.requestId,
+                type: "provider.test.result",
+                provider: provider.name,
+                ok: false,
+                latencyMs: Date.now() - start,
+                sample: "",
+                errorMessage: message,
+              });
+            }
+          },
+        },
+      );
       return;
     }
 

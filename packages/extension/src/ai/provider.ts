@@ -1,4 +1,4 @@
-import type { AiMode } from "@notepad-ai/shared";
+import type { AiMode } from "@memex/shared";
 
 /**
  * Provider abstraction so we can swap Claude CLI for OpenAI, Ollama, etc.

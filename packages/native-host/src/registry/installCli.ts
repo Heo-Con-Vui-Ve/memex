@@ -1,6 +1,6 @@
 import { platform } from "node:os";
 import { installNativeHost, type Browser } from "./install.js";
-import { HOST_NAME } from "@notepad-ai/shared";
+import { HOST_NAME } from "@memex/shared";
 
 // Args: <extensionId> <hostBin> [browsers comma-separated, default "chrome"]
 const [, , extensionId, hostBin, browsersArg = "chrome"] = process.argv;

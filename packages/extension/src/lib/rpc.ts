@@ -1,4 +1,4 @@
-import type { HostRequest, HostResponse } from "@notepad-ai/shared";
+import type { HostRequest, HostResponse } from "@memex/shared";
 
 /**
  * RPC helper used by all UI surfaces. Each surface opens its own long-lived
@@ -132,4 +132,6 @@ export const is = {
     r.type === "settings.get.result",
   settingSet: (r: HostResponse): r is Extract<HostResponse, { type: "settings.set.result" }> =>
     r.type === "settings.set.result",
+  providerTest: (r: HostResponse): r is Extract<HostResponse, { type: "provider.test.result" }> =>
+    r.type === "provider.test.result",
 };

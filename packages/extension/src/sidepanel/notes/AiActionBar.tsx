@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { MODE_SPECS, MVP_ENABLED_MODES } from "@notepad-ai/shared";
-import type { AiMode } from "@notepad-ai/shared";
+import { MODE_SPECS, MVP_ENABLED_MODES } from "@memex/shared";
+import type { AiMode } from "@memex/shared";
 import { stream } from "../../lib/rpc";
 import { Icon } from "../../lib/Icons";
 

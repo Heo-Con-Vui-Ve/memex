@@ -2,9 +2,9 @@ import { defineManifest } from "@crxjs/vite-plugin";
 
 export default defineManifest({
   manifest_version: 3,
-  name: "notepad-ai",
+  name: "Memex",
   version: "0.1.0",
-  description: "AI-powered second-brain notes backed by your local Claude CLI",
+  description: "AI-augmented second brain — notes that think with you, backed by your local Claude CLI",
   minimum_chrome_version: "116",
   icons: {
     "16": "icons/icon-16.png",
@@ -13,7 +13,7 @@ export default defineManifest({
     "128": "icons/icon-128.png",
   },
   action: {
-    default_title: "notepad-ai · open side panel",
+    default_title: "Memex · open side panel",
     default_icon: {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

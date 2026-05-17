@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FolderRow } from "@notepad-ai/shared";
+import type { FolderRow } from "@memex/shared";
 import { Icon } from "../lib/Icons";
 import { is, request } from "../lib/rpc";
 
@@ -35,11 +35,6 @@ export function TopBar(p: Props) {
 
   return (
     <header className="topbar">
-      <div className="brand">
-        <img src="/icons/icon-32.png" alt="" className="brand-icon" />
-        <span>notepad-ai</span>
-      </div>
-
       <div className="search-row">
         <Icon.Search size={14} className="search-icon" />
         <input

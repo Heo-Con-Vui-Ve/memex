@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Cross-platform installer. Usage:
-//   node bin/notepad-ai-install.mjs --extension-id <id> [--host-bin <path>]
+//   node bin/notepad-ai-install.mjs --extension-id <id> [--host-bin <path>] [--browsers chrome|edge|chrome,edge]
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { existsSync } from "node:fs";
@@ -8,12 +8,19 @@ import { parseArgs } from "node:util";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Strip any "--" separators that pnpm/npm may inject when forwarding args
+// (e.g. `pnpm host:install -- --extension-id X` ends up as
+// `node ... -- --extension-id X`, which parseArgs would otherwise reject).
+const rawArgs = process.argv.slice(2).filter((a) => a !== "--");
+
 const { values } = parseArgs({
+  args: rawArgs,
   options: {
     "extension-id": { type: "string" },
     "host-bin": { type: "string" },
     browsers: { type: "string", default: "chrome" },
   },
+  allowPositionals: true,
   strict: true,
 });
 

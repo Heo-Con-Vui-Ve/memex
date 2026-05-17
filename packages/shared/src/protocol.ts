@@ -8,7 +8,7 @@
  */
 
 export const PROTOCOL_VERSION = 1 as const;
-export const HOST_NAME = "cx.jarvis.notepad_ai" as const;
+export const HOST_NAME = "cx.jarvis.memex" as const;
 
 export type AiMode =
   | "summarize"
@@ -168,7 +168,8 @@ export type HostRequest =
   | { requestId: string; type: "folders.rename"; payload: FoldersRenamePayload }
   | { requestId: string; type: "folders.delete"; payload: FoldersDeletePayload }
   | { requestId: string; type: "settings.get"; payload: { key: string } }
-  | { requestId: string; type: "settings.set"; payload: { key: string; value: string } };
+  | { requestId: string; type: "settings.set"; payload: { key: string; value: string } }
+  | { requestId: string; type: "provider.test"; payload: { provider?: "claude" | "openai" | "ollama" } };
 
 export type HostErrorCode =
   | "CLI_NOT_FOUND"
@@ -213,7 +214,16 @@ export type HostResponse =
   | { requestId: string; type: "folders.rename.result"; folder: FolderRow }
   | { requestId: string; type: "folders.delete.result"; deleted: boolean }
   | { requestId: string; type: "settings.get.result"; value: string | null }
-  | { requestId: string; type: "settings.set.result"; ok: true };
+  | { requestId: string; type: "settings.set.result"; ok: true }
+  | {
+      requestId: string;
+      type: "provider.test.result";
+      provider: "claude" | "openai" | "ollama";
+      ok: boolean;
+      latencyMs: number;
+      sample: string;
+      errorMessage?: string;
+    };
 
 export interface AiJobRow {
   id: string;

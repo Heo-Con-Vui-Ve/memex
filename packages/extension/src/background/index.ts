@@ -1,5 +1,5 @@
-import type { HostRequest, HostResponse } from "@notepad-ai/shared";
-import { HOST_NAME } from "@notepad-ai/shared";
+import type { HostRequest, HostResponse } from "@memex/shared";
+import { HOST_NAME } from "@memex/shared";
 
 /**
  * Service worker — the only place that holds the chrome.runtime.connectNative

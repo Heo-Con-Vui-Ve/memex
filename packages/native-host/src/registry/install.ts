@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { HOST_NAME } from "@notepad-ai/shared";
+import { HOST_NAME } from "@memex/shared";
 
 export interface NativeHostManifest {
   name: string;
@@ -33,7 +33,7 @@ export function installNativeHost(opts: {
 
   const manifest: NativeHostManifest = {
     name: HOST_NAME,
-    description: "notepad-ai native messaging host (Claude CLI bridge + SQLite storage)",
+    description: "Memex native messaging host (Claude CLI bridge + SQLite storage)",
     path: absExe,
     type: "stdio",
     allowed_origins: [`chrome-extension://${opts.extensionId}/`],

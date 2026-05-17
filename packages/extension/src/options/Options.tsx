@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { is, request } from "../lib/rpc";
-import type { HostResponse } from "@notepad-ai/shared";
+import type { HostResponse } from "@memex/shared";
+import { getThemeChoice, setThemeChoice, type ThemeChoice } from "../lib/theme";
 
 type Pong = Extract<HostResponse, { type: "pong" }>;
 type Status = { kind: "checking" } | { kind: "ok"; pong: Pong } | { kind: "fail"; message: string };
@@ -23,6 +24,12 @@ async function writeSetting(key: string, value: string): Promise<void> {
   await request({ type: "settings.set", payload: { key, value } }, is.settingSet);
 }
 
+type TestState =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "ok"; latencyMs: number; sample: string; provider: string }
+  | { kind: "fail"; message: string; provider: string };
+
 export function Options() {
   const [status, setStatus] = useState<Status>({ kind: "checking" });
   const [settings, setSettings] = useState<ProviderSettings>({
@@ -33,6 +40,8 @@ export function Options() {
     ollamaModel: "llama3.2",
   });
   const [savedFlash, setSavedFlash] = useState(false);
+  const [test, setTest] = useState<TestState>({ kind: "idle" });
+  const [theme, setTheme] = useState<ThemeChoice>(getThemeChoice());
 
   async function check() {
     setStatus({ kind: "checking" });
@@ -75,6 +84,25 @@ export function Options() {
     setTimeout(() => setSavedFlash(false), 1800);
   }
 
+  async function testProvider() {
+    setTest({ kind: "running" });
+    try {
+      // Always save first so the host has the freshest values to test against.
+      await saveSettings();
+      const res = await request(
+        { type: "provider.test", payload: { provider: settings.provider } },
+        is.providerTest,
+      );
+      if (res.ok) {
+        setTest({ kind: "ok", latencyMs: res.latencyMs, sample: res.sample, provider: res.provider });
+      } else {
+        setTest({ kind: "fail", message: res.errorMessage ?? "Unknown error", provider: res.provider });
+      }
+    } catch (err) {
+      setTest({ kind: "fail", message: (err as Error).message, provider: settings.provider });
+    }
+  }
+
   useEffect(() => {
     void check();
     void loadSettings();
@@ -82,7 +110,7 @@ export function Options() {
 
   return (
     <div className="options-shell">
-      <h1>notepad-ai · settings</h1>
+      <h1>Memex · settings</h1>
 
       <section className="card">
         <header>
@@ -95,7 +123,7 @@ export function Options() {
             <p><strong>Host unreachable.</strong> {status.message}</p>
             <pre>{`# Register the host (run once):
 cd /Users/trantan/Dev/Personal/notepad-ai
-pnpm host:install -- --extension-id ${chrome.runtime.id}
+pnpm host:install --extension-id ${chrome.runtime.id}
 
 # then Cmd+Q quit Chrome and reopen.`}</pre>
           </div>
@@ -119,10 +147,31 @@ pnpm host:install -- --extension-id ${chrome.runtime.id}
       <section className="card">
         <header>
           <h2>AI provider</h2>
-          <button className="primary" onClick={() => void saveSettings()}>
-            {savedFlash ? "Saved ✓" : "Save"}
-          </button>
+          <div className="card-actions">
+            <button
+              onClick={() => void testProvider()}
+              disabled={test.kind === "running" || status.kind !== "ok"}
+              title={status.kind !== "ok" ? "Native host must be reachable first" : "Test the chosen provider"}
+            >
+              {test.kind === "running" ? "Testing…" : "Test connection"}
+            </button>
+            <button className="primary" onClick={() => void saveSettings()}>
+              {savedFlash ? "Saved ✓" : "Save"}
+            </button>
+          </div>
         </header>
+
+        {test.kind === "ok" && (
+          <div className="test-result test-ok">
+            <strong>✓ {test.provider}</strong> responded in {test.latencyMs} ms.
+            {test.sample && <span className="test-sample">Sample: <code>{test.sample}</code></span>}
+          </div>
+        )}
+        {test.kind === "fail" && (
+          <div className="test-result test-fail">
+            <strong>✘ {test.provider} failed:</strong> {test.message}
+          </div>
+        )}
         <div className="form-grid">
           <label>
             <span>Provider</span>
@@ -188,11 +237,34 @@ pnpm host:install -- --extension-id ${chrome.runtime.id}
       </section>
 
       <section className="card">
+        <header><h2>Appearance</h2></header>
+        <div className="theme-row">
+          {(["system", "dark", "light"] as ThemeChoice[]).map((opt) => (
+            <button
+              key={opt}
+              className={"theme-pick" + (theme === opt ? " is-active" : "")}
+              onClick={() => {
+                setTheme(opt);
+                setThemeChoice(opt);
+              }}
+            >
+              <span className={`theme-swatch theme-swatch-${opt}`} />
+              <span>{opt[0]!.toUpperCase() + opt.slice(1)}</span>
+            </button>
+          ))}
+        </div>
+        <p className="muted" style={{ marginTop: 8 }}>
+          System follows your OS dark-mode preference. Persisted in localStorage so it loads instantly.
+        </p>
+      </section>
+
+      <section className="card">
         <h2>About</h2>
         <p>
-          notepad-ai stores all notes locally in SQLite via the native host. The
+          Memex stores all notes locally in SQLite via the native host. The
           chosen AI provider runs on your machine (Claude CLI / Ollama) or against
-          your own API key (OpenAI) — there is no notepad-ai backend.
+          your own API key (OpenAI) — there is no Memex backend.
+          The name nods to Vannevar Bush's 1945 essay <em>As We May Think</em>.
         </p>
       </section>
     </div>

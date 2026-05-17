@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { HostErrorCode, InvokePayload } from "@notepad-ai/shared";
+import type { HostErrorCode, InvokePayload } from "@memex/shared";
 import { getActiveProvider } from "./providers/index.js";
 
 const execFileP = promisify(execFile);
