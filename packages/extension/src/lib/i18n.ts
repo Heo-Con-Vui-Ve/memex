@@ -1,0 +1,427 @@
+/**
+ * Tiny i18n: vi + en. Persisted in localStorage so every surface (sidepanel,
+ * options) picks up the choice instantly without an RPC round-trip.
+ *
+ * Mirrors the shape of `./theme` — same pub/sub primitives so React components
+ * can re-render on language change, and same install-before-React-renders
+ * pattern for SSR-style flicker-free first paint.
+ */
+
+import type { AiMode } from "@memex/shared";
+import { useEffect, useState } from "react";
+
+export type Lang = "vi" | "en";
+
+const STORAGE_KEY = "memex.lang";
+
+export function getLang(): Lang {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === "vi" || raw === "en") return raw;
+  } catch {}
+  // Best-effort first-run guess from the browser locale; default to vi.
+  const nav = typeof navigator !== "undefined" ? navigator.language : "vi";
+  return nav.toLowerCase().startsWith("vi") ? "vi" : "en";
+}
+
+export function setLang(lang: Lang): void {
+  try { localStorage.setItem(STORAGE_KEY, lang); } catch {}
+  apply(lang);
+}
+
+function apply(lang: Lang): void {
+  try { document.documentElement.setAttribute("lang", lang); } catch {}
+  listeners.forEach((fn) => fn(lang));
+}
+
+export function installLang(): void {
+  apply(getLang());
+}
+
+type Listener = (l: Lang) => void;
+const listeners = new Set<Listener>();
+export function onLangChange(fn: Listener): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+/** React hook: returns [lang, setLang]; re-renders when lang changes. */
+export function useLang(): [Lang, (l: Lang) => void] {
+  const [lang, setLocal] = useState<Lang>(getLang());
+  useEffect(() => onLangChange((l) => setLocal(l)), []);
+  return [lang, setLang];
+}
+
+// ---------- Strings ----------
+
+interface Strings {
+  // app shell / topbar
+  searchNotes: string;
+  allNotes: string;
+  unsorted: string;
+  filterByFolder: string;
+  newBtn: string;
+  newFolder: string;
+  folderName: string;
+  more: string;
+  saveSelectedText: string;
+  saveWholePage: string;
+  settings: string;
+  // app states
+  loading: string;
+  noMatches: string;
+  noMatchesHint: string;
+  emptyTitle: string;
+  emptyHint: string;
+  newNote: string;
+  // capture errors
+  errPageUnreadable: string;
+  errNoSelection: string;
+  errPageEmpty: string;
+  // banner
+  hostNotRegistered: string;
+  hostNotRegisteredAfter: string;
+  dismiss: string;
+  // editor
+  back: string;
+  moveToFolder: string;
+  deleteNote: string;
+  saving: string;
+  edited: string;
+  saved: string;
+  untitled: string;
+  confirmDelete: (title: string) => string;
+  // tags
+  addTags: string;
+  removeTag: string;
+  // rich editor
+  startWriting: string;
+  rtH1: string;
+  rtH2: string;
+  rtBold: string;
+  rtItalic: string;
+  rtStrike: string;
+  rtCode: string;
+  rtBullet: string;
+  rtNumbered: string;
+  rtTodo: string;
+  rtQuote: string;
+  rtCodeBlock: string;
+  // ai action bar
+  cancel: string;
+  streaming: string;
+  appendToNote: string;
+  replaceNote: string;
+  replaceSelection: string;
+  insertAfter: string;
+  appendToEnd: string;
+  copy: string;
+  discard: string;
+  autoTitleTags: string;
+  autoTitleTagsTitle: string;
+  autoMetaParseErr: (msg: string) => string;
+  selectionLabel: (chars: number) => string;
+  wholeNoteLabel: string;
+  // ai mode labels
+  modeLabel: Record<AiMode, string>;
+  modeHint: Record<AiMode, string>;
+  // options page
+  optTitle: string;
+  optNativeHost: string;
+  optRecheck: string;
+  optPinging: string;
+  optHostUnreachable: string;
+  optHostVersion: string;
+  optNode: string;
+  optClaudeCli: string;
+  optNotOnPath: string;
+  optSqliteDb: string;
+  optExtensionId: string;
+  optAiProvider: string;
+  optTestConn: string;
+  optTesting: string;
+  optTestConnTip: string;
+  optTestNeedsHostTip: string;
+  optSave: string;
+  optSavedFlash: string;
+  optProvider: string;
+  optClaudeCliOpt: string;
+  optOpenaiOpt: string;
+  optOllamaOpt: string;
+  optOpenaiKey: string;
+  optModel: string;
+  optOllamaUrl: string;
+  optClaudeHint: string;
+  optAppearance: string;
+  optThemeDark: string;
+  optThemeLight: string;
+  optThemeSystem: string;
+  optThemeHint: string;
+  optLanguage: string;
+  optLangVi: string;
+  optLangEn: string;
+  optAbout: string;
+  optAboutBody: string;
+  optTestSampleLabel: string;
+  optTestRespondedIn: (ms: number) => string;
+  optTestFailed: (provider: string) => string;
+}
+
+const en: Strings = {
+  searchNotes: "Search notes",
+  allNotes: "All notes",
+  unsorted: "Unsorted",
+  filterByFolder: "Filter by folder",
+  newBtn: "New",
+  newFolder: "New folder",
+  folderName: "Folder name?",
+  more: "More",
+  saveSelectedText: "Save selected text",
+  saveWholePage: "Save whole page",
+  settings: "Settings",
+  loading: "Loading…",
+  noMatches: "No matches",
+  noMatchesHint: "Try a different query.",
+  emptyTitle: "Your second brain is empty",
+  emptyHint: "Capture from a webpage or create a blank note.",
+  newNote: "New note",
+  errPageUnreadable: "Couldn't read this page (try refreshing it).",
+  errNoSelection: "No text selected on the current page.",
+  errPageEmpty: "Page has no readable text.",
+  hostNotRegistered: "Native host not registered.",
+  hostNotRegisteredAfter: "Then quit Chrome and reopen.",
+  dismiss: "Dismiss",
+  back: "Back",
+  moveToFolder: "Move to folder",
+  deleteNote: "Delete note",
+  saving: "Saving…",
+  edited: "Edited",
+  saved: "Saved",
+  untitled: "Untitled",
+  confirmDelete: (title) => `Delete "${title}"?`,
+  addTags: "Add tags…",
+  removeTag: "Remove",
+  startWriting: "Start writing…",
+  rtH1: "Heading 1",
+  rtH2: "Heading 2",
+  rtBold: "Bold",
+  rtItalic: "Italic",
+  rtStrike: "Strikethrough",
+  rtCode: "Inline code",
+  rtBullet: "Bullet list",
+  rtNumbered: "Numbered list",
+  rtTodo: "Todo list",
+  rtQuote: "Quote",
+  rtCodeBlock: "Code block",
+  cancel: "Cancel",
+  streaming: "streaming…",
+  appendToNote: "Append to note",
+  replaceNote: "Replace note",
+  replaceSelection: "Replace selection",
+  insertAfter: "Insert after",
+  appendToEnd: "Append to end",
+  copy: "Copy",
+  discard: "Discard",
+  autoTitleTags: "Auto title / tags",
+  autoTitleTagsTitle: "Auto-derive a title and tags from the note",
+  autoMetaParseErr: (msg) => `auto-meta parse: ${msg}`,
+  selectionLabel: (chars) => `selection · ${chars} chars`,
+  wholeNoteLabel: "whole note",
+  modeLabel: {
+    summarize: "Summarize",
+    organize: "Organize",
+    brainstorm: "Brainstorm",
+    improve: "Improve writing",
+    "extract-tasks": "Extract tasks",
+    research: "Research assistant",
+  },
+  modeHint: {
+    summarize: "Concise, structured summary with the key points first",
+    organize: "Rewrite into clean structured markdown",
+    brainstorm: "Fresh angles and adjacent ideas",
+    improve: "Clearer writing, same voice and intent",
+    "extract-tasks": "Actionable tasks with owners and deadlines",
+    research: "Identify open questions and what to investigate next",
+  },
+  optTitle: "Memex · settings",
+  optNativeHost: "Native host",
+  optRecheck: "Re-check",
+  optPinging: "Pinging native host…",
+  optHostUnreachable: "Host unreachable.",
+  optHostVersion: "Host version",
+  optNode: "Node",
+  optClaudeCli: "claude CLI",
+  optNotOnPath: "not on PATH",
+  optSqliteDb: "SQLite DB",
+  optExtensionId: "Extension ID",
+  optAiProvider: "AI provider",
+  optTestConn: "Test connection",
+  optTesting: "Testing…",
+  optTestConnTip: "Test the chosen provider",
+  optTestNeedsHostTip: "Native host must be reachable first",
+  optSave: "Save",
+  optSavedFlash: "Saved ✓",
+  optProvider: "Provider",
+  optClaudeCliOpt: "Claude CLI (local)",
+  optOpenaiOpt: "OpenAI API",
+  optOllamaOpt: "Ollama (local)",
+  optOpenaiKey: "OpenAI API key",
+  optModel: "Model",
+  optOllamaUrl: "Ollama URL",
+  optClaudeHint: "Uses your local claude CLI auth. No API key needed.",
+  optAppearance: "Appearance",
+  optThemeDark: "Dark",
+  optThemeLight: "Light",
+  optThemeSystem: "System",
+  optThemeHint: "System follows your OS dark-mode preference. Persisted in localStorage so it loads instantly.",
+  optLanguage: "Language",
+  optLangVi: "Tiếng Việt",
+  optLangEn: "English",
+  optAbout: "About",
+  optAboutBody: "Memex stores all notes locally in SQLite via the native host. The chosen AI provider runs on your machine (Claude CLI / Ollama) or against your own API key (OpenAI) — there is no Memex backend. The name nods to Vannevar Bush's 1945 essay As We May Think.",
+  optTestSampleLabel: "Sample",
+  optTestRespondedIn: (ms) => `responded in ${ms} ms.`,
+  optTestFailed: (p) => `${p} failed:`,
+};
+
+const vi: Strings = {
+  searchNotes: "Tìm note",
+  allNotes: "Tất cả note",
+  unsorted: "Chưa phân loại",
+  filterByFolder: "Lọc theo thư mục",
+  newBtn: "Tạo",
+  newFolder: "Thư mục mới",
+  folderName: "Tên thư mục?",
+  more: "Thêm",
+  saveSelectedText: "Lưu phần đã chọn",
+  saveWholePage: "Lưu cả trang",
+  settings: "Cài đặt",
+  loading: "Đang tải…",
+  noMatches: "Không có kết quả",
+  noMatchesHint: "Thử từ khoá khác.",
+  emptyTitle: "Bộ não thứ hai còn trống",
+  emptyHint: "Lấy nội dung từ một trang web hoặc tạo note trắng.",
+  newNote: "Note mới",
+  errPageUnreadable: "Không đọc được trang này (thử reload).",
+  errNoSelection: "Chưa chọn đoạn text nào trên trang.",
+  errPageEmpty: "Trang không có nội dung text.",
+  hostNotRegistered: "Native host chưa register.",
+  hostNotRegisteredAfter: "Sau đó quit Chrome và mở lại.",
+  dismiss: "Đóng",
+  back: "Quay lại",
+  moveToFolder: "Chuyển vào thư mục",
+  deleteNote: "Xoá note",
+  saving: "Đang lưu…",
+  edited: "Đã chỉnh",
+  saved: "Đã lưu",
+  untitled: "Chưa đặt tên",
+  confirmDelete: (title) => `Xoá "${title}"?`,
+  addTags: "Thêm tag…",
+  removeTag: "Xoá",
+  startWriting: "Bắt đầu viết…",
+  rtH1: "Tiêu đề 1",
+  rtH2: "Tiêu đề 2",
+  rtBold: "Đậm",
+  rtItalic: "Nghiêng",
+  rtStrike: "Gạch ngang",
+  rtCode: "Code inline",
+  rtBullet: "Danh sách",
+  rtNumbered: "Danh sách số",
+  rtTodo: "Danh sách todo",
+  rtQuote: "Trích dẫn",
+  rtCodeBlock: "Khối code",
+  cancel: "Huỷ",
+  streaming: "đang stream…",
+  appendToNote: "Thêm vào cuối",
+  replaceNote: "Thay toàn bộ",
+  replaceSelection: "Thay đoạn đã chọn",
+  insertAfter: "Chèn ngay sau",
+  appendToEnd: "Thêm vào cuối note",
+  copy: "Copy",
+  discard: "Bỏ",
+  autoTitleTags: "Tự đặt title / tag",
+  autoTitleTagsTitle: "Để AI tự suy ra title và tag từ nội dung note",
+  autoMetaParseErr: (msg) => `lỗi parse auto-meta: ${msg}`,
+  selectionLabel: (chars) => `đã chọn · ${chars} ký tự`,
+  wholeNoteLabel: "cả note",
+  modeLabel: {
+    summarize: "Tóm tắt",
+    organize: "Sắp xếp",
+    brainstorm: "Brainstorm",
+    improve: "Viết lại",
+    "extract-tasks": "Trích task",
+    research: "Trợ lý nghiên cứu",
+  },
+  modeHint: {
+    summarize: "Tóm tắt gọn, có cấu trúc, điểm quan trọng đầu",
+    organize: "Viết lại thành markdown gọn gàng có cấu trúc",
+    brainstorm: "Gợi mở góc nhìn mới và ý tưởng liên quan",
+    improve: "Viết rõ ràng hơn, giữ giọng điệu và ý gốc",
+    "extract-tasks": "Liệt kê task có owner và deadline (nếu có)",
+    research: "Tìm câu hỏi mở và hướng tìm hiểu tiếp",
+  },
+  optTitle: "Memex · cài đặt",
+  optNativeHost: "Native host",
+  optRecheck: "Kiểm tra lại",
+  optPinging: "Đang ping native host…",
+  optHostUnreachable: "Không kết nối được host.",
+  optHostVersion: "Phiên bản host",
+  optNode: "Node",
+  optClaudeCli: "claude CLI",
+  optNotOnPath: "không có trong PATH",
+  optSqliteDb: "SQLite DB",
+  optExtensionId: "Extension ID",
+  optAiProvider: "AI provider",
+  optTestConn: "Kiểm tra kết nối",
+  optTesting: "Đang test…",
+  optTestConnTip: "Test provider đang chọn",
+  optTestNeedsHostTip: "Native host phải reachable trước",
+  optSave: "Lưu",
+  optSavedFlash: "Đã lưu ✓",
+  optProvider: "Provider",
+  optClaudeCliOpt: "Claude CLI (local)",
+  optOpenaiOpt: "OpenAI API",
+  optOllamaOpt: "Ollama (local)",
+  optOpenaiKey: "OpenAI API key",
+  optModel: "Model",
+  optOllamaUrl: "Ollama URL",
+  optClaudeHint: "Dùng auth local của claude CLI. Không cần API key.",
+  optAppearance: "Giao diện",
+  optThemeDark: "Tối",
+  optThemeLight: "Sáng",
+  optThemeSystem: "Theo hệ thống",
+  optThemeHint: "Theo hệ thống = dùng setting dark-mode của OS. Lưu trong localStorage để load tức thì.",
+  optLanguage: "Ngôn ngữ",
+  optLangVi: "Tiếng Việt",
+  optLangEn: "English",
+  optAbout: "Giới thiệu",
+  optAboutBody: "Memex lưu toàn bộ note local trong SQLite qua native host. AI provider chạy trên máy bạn (Claude CLI / Ollama) hoặc dùng API key riêng của bạn (OpenAI) — không có backend của Memex. Tên gọi lấy cảm hứng từ bài essay 1945 As We May Think của Vannevar Bush.",
+  optTestSampleLabel: "Mẫu",
+  optTestRespondedIn: (ms) => `phản hồi trong ${ms} ms.`,
+  optTestFailed: (p) => `${p} thất bại:`,
+};
+
+const TABLES: Record<Lang, Strings> = { en, vi };
+
+/** Get the current strings table. Read on each call so changes propagate. */
+export function t(): Strings {
+  return TABLES[getLang()];
+}
+
+/** Reactive variant — returns strings AND re-renders when lang changes. */
+export function useT(): Strings {
+  const [lang] = useLang();
+  return TABLES[lang];
+}
+
+// ---------- For the host AI prompt ----------
+
+/**
+ * Prepended to every AI prompt so the model replies in the user's language.
+ * Kept short and imperative — long instructions waste tokens.
+ */
+export function aiLanguageDirective(lang: Lang = getLang()): string {
+  return lang === "vi"
+    ? "Reply in Vietnamese (tiếng Việt). Keep markdown formatting."
+    : "Reply in English. Keep markdown formatting.";
+}

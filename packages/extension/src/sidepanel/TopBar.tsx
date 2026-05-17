@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FolderRow } from "@memex/shared";
 import { Icon } from "../lib/Icons";
 import { is, request } from "../lib/rpc";
+import { useT } from "../lib/i18n";
 
 interface Props {
   query: string;
@@ -16,11 +17,12 @@ interface Props {
 }
 
 export function TopBar(p: Props) {
+  const tr = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
 
   async function createFolder() {
-    const name = prompt("Folder name?")?.trim();
+    const name = prompt(tr.folderName)?.trim();
     if (!name) return;
     await request({ type: "folders.create", payload: { name } }, is.folderCreated);
     p.onFoldersChanged();
@@ -28,9 +30,9 @@ export function TopBar(p: Props) {
 
   const currentLabel =
     p.folderFilter === "all"
-      ? "All notes"
+      ? tr.allNotes
       : p.folderFilter === null
-      ? "Unsorted"
+      ? tr.unsorted
       : p.folders.find((f) => f.id === p.folderFilter)?.name ?? "?";
 
   return (
@@ -39,7 +41,7 @@ export function TopBar(p: Props) {
         <Icon.Search size={14} className="search-icon" />
         <input
           type="search"
-          placeholder="Search notes"
+          placeholder={tr.searchNotes}
           value={p.query}
           onChange={(e) => p.onQuery(e.target.value)}
         />
@@ -50,7 +52,7 @@ export function TopBar(p: Props) {
           <button
             className="folder-trigger"
             onClick={() => setFolderMenuOpen((o) => !o)}
-            title="Filter by folder"
+            title={tr.filterByFolder}
           >
             <Icon.Folder size={13} /> {currentLabel}
           </button>
@@ -59,10 +61,10 @@ export function TopBar(p: Props) {
               <div className="pop-backdrop" onClick={() => setFolderMenuOpen(false)} />
               <div className="pop">
                 <button className={"pop-item" + (p.folderFilter === "all" ? " is-active" : "")} onClick={() => { p.onFolderFilter("all"); setFolderMenuOpen(false); }}>
-                  All notes
+                  {tr.allNotes}
                 </button>
                 <button className={"pop-item" + (p.folderFilter === null ? " is-active" : "")} onClick={() => { p.onFolderFilter(null); setFolderMenuOpen(false); }}>
-                  Unsorted
+                  {tr.unsorted}
                 </button>
                 {p.folders.length > 0 && <div className="pop-sep" />}
                 {p.folders.map((f) => (
@@ -74,19 +76,19 @@ export function TopBar(p: Props) {
                 ))}
                 <div className="pop-sep" />
                 <button className="pop-item" onClick={() => { setFolderMenuOpen(false); void createFolder(); }}>
-                  <Icon.FolderPlus size={12} /> New folder
+                  <Icon.FolderPlus size={12} /> {tr.newFolder}
                 </button>
               </div>
             </>
           )}
         </div>
 
-        <button className="primary new-btn" onClick={p.onNew} title="New note">
-          <Icon.Plus size={14} /> New
+        <button className="primary new-btn" onClick={p.onNew} title={tr.newNote}>
+          <Icon.Plus size={14} /> {tr.newBtn}
         </button>
 
         <div className="folder-pop">
-          <button className="icon-only ghost more-btn" onClick={() => setMenuOpen((o) => !o)} title="More">
+          <button className="icon-only ghost more-btn" onClick={() => setMenuOpen((o) => !o)} title={tr.more}>
             ⋯
           </button>
           {menuOpen && (
@@ -94,14 +96,14 @@ export function TopBar(p: Props) {
               <div className="pop-backdrop" onClick={() => setMenuOpen(false)} />
               <div className="pop pop-right">
                 <button className="pop-item" onClick={() => { setMenuOpen(false); p.onCaptureSelection(); }}>
-                  <Icon.Inbox size={13} /> Save selected text
+                  <Icon.Inbox size={13} /> {tr.saveSelectedText}
                 </button>
                 <button className="pop-item" onClick={() => { setMenuOpen(false); p.onCaptureWholePage(); }}>
-                  <Icon.Notes size={13} /> Save whole page
+                  <Icon.Notes size={13} /> {tr.saveWholePage}
                 </button>
                 <div className="pop-sep" />
                 <button className="pop-item" onClick={() => { setMenuOpen(false); chrome.runtime.openOptionsPage(); }}>
-                  <Icon.Command size={13} /> Settings
+                  <Icon.Command size={13} /> {tr.settings}
                 </button>
               </div>
             </>

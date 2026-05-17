@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
+import { useT } from "../../lib/i18n";
 
 interface Props {
   tags: string[];
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function TagsInput({ tags, onChange }: Props) {
+  const tr = useT();
   const [draft, setDraft] = useState("");
 
   function add(raw: string) {
@@ -36,12 +38,12 @@ export function TagsInput({ tags, onChange }: Props) {
       {tags.map((t) => (
         <span key={t} className="tag-chip">
           {t}
-          <button onClick={() => remove(t)} title="Remove" aria-label={`Remove ${t}`}>×</button>
+          <button onClick={() => remove(t)} title={tr.removeTag} aria-label={`${tr.removeTag} ${t}`}>×</button>
         </span>
       ))}
       <input
         value={draft}
-        placeholder={tags.length === 0 ? "Add tags…" : ""}
+        placeholder={tags.length === 0 ? tr.addTags : ""}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={onKey}
         onBlur={() => add(draft)}

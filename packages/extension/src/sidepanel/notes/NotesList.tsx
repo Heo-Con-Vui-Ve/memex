@@ -1,4 +1,5 @@
 import type { NoteRow } from "@memex/shared";
+import { useT } from "../../lib/i18n";
 
 interface Props {
   notes: NoteRow[];
@@ -26,12 +27,13 @@ function preview(md: string): string {
 }
 
 export function NotesList({ notes, onOpen }: Props) {
+  const tr = useT();
   return (
     <ul className="notes-list">
       {notes.map((n) => (
         <li key={n.id} className="notes-row" onClick={() => onOpen(n.id)}>
           <div className="notes-row-top">
-            <div className="notes-row-title">{n.title || "Untitled"}</div>
+            <div className="notes-row-title">{n.title || tr.untitled}</div>
             <div className="notes-row-when">{formatWhen(n.updatedAt)}</div>
           </div>
           {preview(n.contentMd) && <div className="notes-row-preview">{preview(n.contentMd)}</div>}

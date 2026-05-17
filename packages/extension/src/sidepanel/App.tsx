@@ -3,6 +3,8 @@ import type { FolderRow, NoteRow } from "@memex/shared";
 import { newNote } from "@memex/shared";
 import { is, request } from "../lib/rpc";
 import { Icon } from "../lib/Icons";
+import { useT } from "../lib/i18n";
+import { captureFromTab } from "../lib/captureFromTab";
 import { NotesList } from "./notes/NotesList";
 import { Editor } from "./notes/Editor";
 import { TopBar } from "./TopBar";
@@ -10,6 +12,7 @@ import { TopBar } from "./TopBar";
 type View = { kind: "list" } | { kind: "editor"; noteId: string };
 
 export function App() {
+  const tr = useT();
   const [view, setView] = useState<View>({ kind: "list" });
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [folders, setFolders] = useState<FolderRow[]>([]);
@@ -93,12 +96,12 @@ export function App() {
       if (!tab?.id) return;
       let cap: { text: string; url: string; title: string };
       try {
-        cap = (await chrome.tabs.sendMessage(tab.id, { type: "capture-selection" })) as typeof cap;
+        cap = await captureFromTab(tab.id, "selection");
       } catch {
         cap = { text: "", url: tab.url ?? "", title: tab.title ?? "" };
       }
       if (!cap.text.trim()) {
-        setError("No text selected on the current page.");
+        setError(tr.errNoSelection);
         return;
       }
       const created = newNote({
@@ -128,13 +131,13 @@ export function App() {
       if (!tab?.id) return;
       let cap: { text: string; url: string; title: string };
       try {
-        cap = (await chrome.tabs.sendMessage(tab.id, { type: "capture-page" })) as typeof cap;
+        cap = await captureFromTab(tab.id, "page");
       } catch {
-        setError("Couldn't read this page (try refreshing it).");
+        setError(tr.errPageUnreadable);
         return;
       }
       if (!cap.text.trim()) {
-        setError("Page has no readable text.");
+        setError(tr.errPageEmpty);
         return;
       }
       const created = newNote({
@@ -176,11 +179,11 @@ export function App() {
           />
           {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
           {loading ? (
-            <div className="empty"><Icon.Loader size={20} /> <span>Loading…</span></div>
+            <div className="empty"><Icon.Loader size={20} /> <span>{tr.loading}</span></div>
           ) : notes.length === 0 ? (
             <EmptyState
-              title={query ? "No matches" : "Your second brain is empty"}
-              hint={query ? "Try a different query." : "Capture from a webpage or create a blank note."}
+              title={query ? tr.noMatches : tr.emptyTitle}
+              hint={query ? tr.noMatchesHint : tr.emptyHint}
               onCreate={query ? undefined : () => void newBlank()}
             />
           ) : (
@@ -216,6 +219,7 @@ function EmptyState({
   hint: string;
   onCreate?: () => void;
 }) {
+  const tr = useT();
   return (
     <div className="empty empty-big">
       <Icon.Notes size={28} />
@@ -223,7 +227,7 @@ function EmptyState({
       <p>{hint}</p>
       {onCreate && (
         <button className="primary" onClick={onCreate}>
-          <Icon.Plus size={14} /> New note
+          <Icon.Plus size={14} /> {tr.newNote}
         </button>
       )}
     </div>
@@ -231,21 +235,22 @@ function EmptyState({
 }
 
 function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  const tr = useT();
   const needsInstall =
     message.includes("native messaging host not found") || message.includes("Specified native");
   return (
     <div className="banner banner-error">
       {needsInstall ? (
         <>
-          <strong>Native host chưa register.</strong>
+          <strong>{tr.hostNotRegistered}</strong>
           <pre>{`cd /Users/trantan/Dev/Personal/memex
 pnpm host:install --extension-id ${chrome.runtime.id}`}</pre>
-          <span>Sau đó <kbd>⌘Q</kbd> quit Chrome và mở lại.</span>
+          <span><kbd>⌘Q</kbd> {tr.hostNotRegisteredAfter}</span>
         </>
       ) : (
         <span>{message}</span>
       )}
-      <button className="ghost banner-x" onClick={onDismiss} aria-label="Dismiss"><Icon.X size={14} /></button>
+      <button className="ghost banner-x" onClick={onDismiss} aria-label={tr.dismiss}><Icon.X size={14} /></button>
     </div>
   );
 }

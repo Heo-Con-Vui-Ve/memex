@@ -420,13 +420,15 @@ kbd {
   margin: 0 4px;
   align-self: center;
 }
-.rich-host .ProseMirror {
+/* Dedicated scroll container — gives the editor body a known clipping
+   boundary so the AI footer is never overlapped, regardless of how ProseMirror
+   sizes the .ProseMirror element internally. */
+.rich-scroll {
   flex: 1 1 0;
-  /* min-height: 0 lets the flex item shrink below its natural content size so
-     overflow-y can actually clip; without this the body grows to fit the doc
-     and the editor footer ends up rendered ON TOP of the trailing content. */
   min-height: 0;
   overflow-y: auto;
+}
+.rich-host .ProseMirror {
   padding: 14px 16px 24px;
   outline: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -542,6 +544,11 @@ kbd {
   border-top: 1px solid var(--border);
   padding: 10px 12px;
   background: var(--bg-1);
+  /* Belt-and-braces: keep footer above the scroll body even if some layout
+     edge case lets the body overrun (defends against the bug where AI buttons
+     ended up rendering on top of the trailing note content). */
+  position: relative;
+  z-index: 2;
 }
 .ai-wrap { display: flex; flex-direction: column; gap: 10px; }
 .ai-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }

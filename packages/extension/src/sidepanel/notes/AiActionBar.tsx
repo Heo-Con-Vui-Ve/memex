@@ -3,31 +3,46 @@ import { MODE_SPECS, MVP_ENABLED_MODES } from "@memex/shared";
 import type { AiMode } from "@memex/shared";
 import { stream } from "../../lib/rpc";
 import { Icon } from "../../lib/Icons";
+import { aiLanguageDirective, useT } from "../../lib/i18n";
+
+/** Source the prompt should be built from. Captured at the moment the user
+ *  clicks a mode button, so subsequent typing doesn't shift the target. */
+export type AiContext =
+  | { kind: "selection"; text: string }
+  | { kind: "whole"; text: string };
+
+/** How the user wants to fold AI output back into the note. */
+export type AiApplyMode =
+  | "append"               // append at end of note
+  | "replace-whole"        // overwrite whole note
+  | "replace-selection"    // overwrite the captured selection
+  | "insert-after-selection"; // insert right after the selection
 
 interface Props {
-  /** Live note body (markdown) — used to build the prompt. */
-  noteBody: string;
-  /** Called when the user accepts AI output into the note. */
-  onApply: (text: string, mode: "append" | "replace") => void;
-  /** Called when the AI returns parsed {title, tags} — used by Auto title / tags. */
+  /** Called at run-time to capture the current AI context (selection or whole). */
+  getContext: () => AiContext;
+  /** Called when the user accepts AI output. */
+  onApply: (text: string, mode: AiApplyMode) => void;
+  /** Optional: invoked when Auto title / tags returns parsed JSON. */
   onAutoMetadata?: (meta: { title?: string; tags?: string[] }) => void;
 }
 
-type RunningKind = AiMode | "auto-meta";
 type StreamState =
   | { kind: "idle" }
-  | { kind: "running"; mode: AiMode; output: string }
-  | { kind: "done"; mode: AiMode; output: string }
-  | { kind: "error"; mode: RunningKind; message: string };
+  | { kind: "running"; mode: AiMode; ctx: AiContext; output: string }
+  | { kind: "done"; mode: AiMode; ctx: AiContext; output: string }
+  | { kind: "error"; mode: AiMode | "auto-meta"; message: string };
 
 /**
  * AI panel that:
- *  1. Streams a chosen "mode" prompt through the active provider
+ *  1. Streams a chosen "mode" prompt through the active provider, against the
+ *     current selection if any, otherwise the whole note
  *  2. Buffers output in a dedicated preview panel (NOT into the note doc)
- *  3. On done, surfaces Append / Replace / Copy / Discard so the user
- *     decides whether (and how) to fold the suggestion into their note
+ *  3. On done, surfaces context-appropriate Apply buttons (replace selection
+ *     / insert after / append / replace whole / copy / discard)
  */
-export function AiActionBar({ noteBody, onApply, onAutoMetadata }: Props) {
+export function AiActionBar({ getContext, onApply, onAutoMetadata }: Props) {
+  const tr = useT();
   const [state, setState] = useState<StreamState>({ kind: "idle" });
   const [autoMetaRunning, setAutoMetaRunning] = useState(false);
   const cancelRef = useRef<{ cancel: () => void } | null>(null);
@@ -45,10 +60,11 @@ export function AiActionBar({ noteBody, onApply, onAutoMetadata }: Props) {
       cancelRef.current?.cancel();
       return;
     }
-    if (!noteBody.trim()) return;
+    const ctx = getContext();
+    if (!ctx.text.trim()) return;
 
-    setState({ kind: "running", mode, output: "" });
-    const prompt = MODE_SPECS[mode].defaultPromptTemplate(noteBody);
+    setState({ kind: "running", mode, ctx, output: "" });
+    const prompt = `${aiLanguageDirective()}\n\n${MODE_SPECS[mode].defaultPromptTemplate(ctx.text)}`;
 
     cancelRef.current = stream(
       { type: "claude.invoke", payload: { mode, prompt } },
@@ -64,7 +80,7 @@ export function AiActionBar({ noteBody, onApply, onAutoMetadata }: Props) {
           cancelRef.current = null;
           setState((prev) =>
             prev.kind === "running" && prev.mode === mode
-              ? { kind: "done", mode, output: prev.output }
+              ? { kind: "done", mode, ctx: prev.ctx, output: prev.output }
               : prev,
           );
         },
@@ -82,17 +98,22 @@ export function AiActionBar({ noteBody, onApply, onAutoMetadata }: Props) {
       cancelRef.current?.cancel();
       return;
     }
-    if (!noteBody.trim()) return;
+    const ctx = getContext();
+    // Auto-meta always operates on the whole note; selection doesn't make sense here.
+    const body = ctx.kind === "selection" ? "" : ctx.text;
+    if (!body.trim()) return;
 
     setAutoMetaRunning(true);
-    const prompt = `Read the note below and respond with ONLY a JSON object of the form:
+    const prompt = `${aiLanguageDirective()}
+
+Read the note below and respond with ONLY a JSON object of the form:
 {"title": "...", "tags": ["...", "..."]}
 
 The title should be ≤ 60 chars. Tags should be 1-5 lowercase single-word labels.
 
 Note:
 ---
-${noteBody}
+${body}
 ---`;
     let buffered = "";
     cancelRef.current = stream(
@@ -108,7 +129,7 @@ ${noteBody}
             const parsed = JSON.parse(match[0]) as { title?: string; tags?: string[] };
             onAutoMetadata(parsed);
           } catch (err) {
-            setState({ kind: "error", mode: "auto-meta", message: `auto-meta parse: ${(err as Error).message}` });
+            setState({ kind: "error", mode: "auto-meta", message: tr.autoMetaParseErr((err as Error).message) });
           }
         },
         onError: (code, message) => {
@@ -124,7 +145,7 @@ ${noteBody}
     setState({ kind: "idle" });
   }
 
-  function apply(mode: "append" | "replace") {
+  function apply(mode: AiApplyMode) {
     if (state.kind !== "done") return;
     onApply(state.output, mode);
     setState({ kind: "idle" });
@@ -140,6 +161,17 @@ ${noteBody}
   const isRunning = state.kind === "running";
   const isAnyRunning = isRunning || autoMetaRunning;
 
+  const modeLabelFor = (m: AiMode | "auto-meta"): string =>
+    m === "auto-meta" ? tr.autoTitleTags : tr.modeLabel[m];
+
+  const ctxLabel = (ctx: AiContext): string =>
+    ctx.kind === "selection" ? tr.selectionLabel(ctx.text.length) : tr.wholeNoteLabel;
+
+  // Preserve the editor's selection when clicking buttons: without
+  // preventDefault, the focus shift on mousedown clears the highlight before
+  // our onClick can read it via getContext().
+  const noBlur = (e: React.MouseEvent) => e.preventDefault();
+
   return (
     <div className="ai-wrap">
       {state.kind !== "idle" && (
@@ -148,24 +180,24 @@ ${noteBody}
             <strong>
               {state.kind === "running" && (
                 <>
-                  <Icon.Loader size={12} /> {MODE_SPECS[state.mode].label} · streaming…
+                  <Icon.Loader size={12} /> {modeLabelFor(state.mode)} · {ctxLabel(state.ctx)} · {tr.streaming}
                 </>
               )}
               {state.kind === "done" && (
                 <>
-                  <Icon.Sparkles size={12} /> {MODE_SPECS[state.mode].label}
+                  <Icon.Sparkles size={12} /> {modeLabelFor(state.mode)} · {ctxLabel(state.ctx)}
                 </>
               )}
               {state.kind === "error" && (
-                <>⚠ {state.mode === "auto-meta" ? "Auto title / tags" : MODE_SPECS[state.mode as AiMode].label}</>
+                <>⚠ {modeLabelFor(state.mode)}</>
               )}
             </strong>
             <button
               className="ghost ai-panel-x"
               onClick={isRunning ? () => cancelRef.current?.cancel() : discard}
-              title={isRunning ? "Cancel" : "Discard"}
+              title={isRunning ? tr.cancel : tr.discard}
             >
-              {isRunning ? "Cancel" : <Icon.X size={12} />}
+              {isRunning ? tr.cancel : <Icon.X size={12} />}
             </button>
           </div>
           {state.kind === "error" ? (
@@ -177,11 +209,23 @@ ${noteBody}
           )}
           {state.kind === "done" && state.output.trim().length > 0 && (
             <div className="ai-panel-actions">
-              <button className="primary" onClick={() => apply("append")}>
-                <Icon.Plus size={12} /> Append to note
-              </button>
-              <button onClick={() => apply("replace")}>Replace note</button>
-              <button className="ghost" onClick={() => void copy()}>Copy</button>
+              {state.ctx.kind === "selection" ? (
+                <>
+                  <button className="primary" onClick={() => apply("replace-selection")}>
+                    <Icon.Sparkles size={12} /> {tr.replaceSelection}
+                  </button>
+                  <button onClick={() => apply("insert-after-selection")}>{tr.insertAfter}</button>
+                  <button onClick={() => apply("append")}>{tr.appendToEnd}</button>
+                </>
+              ) : (
+                <>
+                  <button className="primary" onClick={() => apply("append")}>
+                    <Icon.Plus size={12} /> {tr.appendToNote}
+                  </button>
+                  <button onClick={() => apply("replace-whole")}>{tr.replaceNote}</button>
+                </>
+              )}
+              <button className="ghost" onClick={() => void copy()}>{tr.copy}</button>
             </div>
           )}
         </div>
@@ -189,29 +233,30 @@ ${noteBody}
 
       <div className="ai-bar">
         {MVP_ENABLED_MODES.map((mode) => {
-          const spec = MODE_SPECS[mode];
           const active = isRunning && state.mode === mode;
           return (
             <button
               key={mode}
               className={"ai-btn" + (active ? " is-running" : "")}
+              onMouseDown={noBlur}
               onClick={() => run(mode)}
-              disabled={!noteBody.trim() || (isAnyRunning && !active)}
-              title={spec.systemHint}
+              disabled={isAnyRunning && !active}
+              title={tr.modeHint[mode]}
             >
-              {active ? "Cancel" : spec.label}
+              {active ? tr.cancel : tr.modeLabel[mode]}
             </button>
           );
         })}
         {onAutoMetadata && (
           <button
             className={"ai-btn" + (autoMetaRunning ? " is-running" : "")}
+            onMouseDown={noBlur}
             onClick={runAutoMeta}
-            disabled={!noteBody.trim() || (isAnyRunning && !autoMetaRunning)}
-            title="Auto title + tags via Claude"
+            disabled={isAnyRunning && !autoMetaRunning}
+            title={tr.autoTitleTagsTitle}
           >
             <Icon.Sparkles size={12} />
-            {autoMetaRunning ? "Cancel" : "Auto title / tags"}
+            {autoMetaRunning ? tr.cancel : tr.autoTitleTags}
           </button>
         )}
       </div>

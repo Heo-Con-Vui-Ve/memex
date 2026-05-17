@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { is, request } from "../lib/rpc";
 import type { HostResponse } from "@memex/shared";
 import { getThemeChoice, setThemeChoice, type ThemeChoice } from "../lib/theme";
+import { useT, useLang, type Lang } from "../lib/i18n";
 
 type Pong = Extract<HostResponse, { type: "pong" }>;
 type Status = { kind: "checking" } | { kind: "ok"; pong: Pong } | { kind: "fail"; message: string };
@@ -31,6 +32,8 @@ type TestState =
   | { kind: "fail"; message: string; provider: string };
 
 export function Options() {
+  const tr = useT();
+  const [lang, setLang] = useLang();
   const [status, setStatus] = useState<Status>({ kind: "checking" });
   const [settings, setSettings] = useState<ProviderSettings>({
     provider: "claude",
@@ -54,8 +57,6 @@ export function Options() {
   }
 
   async function loadSettings() {
-    // Promise.allSettled (not all) so individual rejections never become
-    // unhandled — a forbidden native host rejects every readSetting in parallel.
     const results = await Promise.allSettled([
       readSetting("ai.provider"),
       readSetting("ai.openai.apiKey"),
@@ -93,7 +94,6 @@ export function Options() {
   async function testProvider() {
     setTest({ kind: "running" });
     try {
-      // Always save first so the host has the freshest values to test against.
       await saveSettings();
       const res = await request(
         { type: "provider.test", payload: { provider: settings.provider } },
@@ -116,17 +116,17 @@ export function Options() {
 
   return (
     <div className="options-shell">
-      <h1>Memex · settings</h1>
+      <h1>{tr.optTitle}</h1>
 
       <section className="card">
         <header>
-          <h2>Native host</h2>
-          <button onClick={() => { check().catch(() => {}); }}>Re-check</button>
+          <h2>{tr.optNativeHost}</h2>
+          <button onClick={() => { check().catch(() => {}); }}>{tr.optRecheck}</button>
         </header>
-        {status.kind === "checking" && <p>Pinging native host…</p>}
+        {status.kind === "checking" && <p>{tr.optPinging}</p>}
         {status.kind === "fail" && (
           <div className="bad">
-            <p><strong>Host unreachable.</strong> {status.message}</p>
+            <p><strong>{tr.optHostUnreachable}</strong> {status.message}</p>
             <pre>{`# Register the host (run once):
 cd /Users/trantan/Dev/Personal/memex
 pnpm host:install --extension-id ${chrome.runtime.id}
@@ -136,65 +136,65 @@ pnpm host:install --extension-id ${chrome.runtime.id}
         )}
         {status.kind === "ok" && (
           <dl className="kv">
-            <dt>Host version</dt><dd>{status.pong.hostVersion}</dd>
-            <dt>Node</dt><dd>{status.pong.nodeVersion}</dd>
-            <dt>claude CLI</dt>
+            <dt>{tr.optHostVersion}</dt><dd>{status.pong.hostVersion}</dd>
+            <dt>{tr.optNode}</dt><dd>{status.pong.nodeVersion}</dd>
+            <dt>{tr.optClaudeCli}</dt>
             <dd>
               {status.pong.claudePath
                 ? `${status.pong.claudeVersion ?? "?"} (${status.pong.claudePath})`
-                : <span className="bad">not on PATH</span>}
+                : <span className="bad">{tr.optNotOnPath}</span>}
             </dd>
-            <dt>SQLite DB</dt><dd>{status.pong.dbPath}</dd>
-            <dt>Extension ID</dt><dd>{chrome.runtime.id}</dd>
+            <dt>{tr.optSqliteDb}</dt><dd>{status.pong.dbPath}</dd>
+            <dt>{tr.optExtensionId}</dt><dd>{chrome.runtime.id}</dd>
           </dl>
         )}
       </section>
 
       <section className="card">
         <header>
-          <h2>AI provider</h2>
+          <h2>{tr.optAiProvider}</h2>
           <div className="card-actions">
             <button
               onClick={() => { testProvider().catch(() => {}); }}
               disabled={test.kind === "running" || status.kind !== "ok"}
-              title={status.kind !== "ok" ? "Native host must be reachable first" : "Test the chosen provider"}
+              title={status.kind !== "ok" ? tr.optTestNeedsHostTip : tr.optTestConnTip}
             >
-              {test.kind === "running" ? "Testing…" : "Test connection"}
+              {test.kind === "running" ? tr.optTesting : tr.optTestConn}
             </button>
             <button className="primary" onClick={() => { saveSettings().catch(() => {}); }}>
-              {savedFlash ? "Saved ✓" : "Save"}
+              {savedFlash ? tr.optSavedFlash : tr.optSave}
             </button>
           </div>
         </header>
 
         {test.kind === "ok" && (
           <div className="test-result test-ok">
-            <strong>✓ {test.provider}</strong> responded in {test.latencyMs} ms.
-            {test.sample && <span className="test-sample">Sample: <code>{test.sample}</code></span>}
+            <strong>✓ {test.provider}</strong> {tr.optTestRespondedIn(test.latencyMs)}
+            {test.sample && <span className="test-sample">{tr.optTestSampleLabel}: <code>{test.sample}</code></span>}
           </div>
         )}
         {test.kind === "fail" && (
           <div className="test-result test-fail">
-            <strong>✘ {test.provider} failed:</strong> {test.message}
+            <strong>✘ {tr.optTestFailed(test.provider)}</strong> {test.message}
           </div>
         )}
         <div className="form-grid">
           <label>
-            <span>Provider</span>
+            <span>{tr.optProvider}</span>
             <select
               value={settings.provider}
               onChange={(e) => setSettings({ ...settings, provider: e.target.value as ProviderName })}
             >
-              <option value="claude">Claude CLI (local)</option>
-              <option value="openai">OpenAI API</option>
-              <option value="ollama">Ollama (local)</option>
+              <option value="claude">{tr.optClaudeCliOpt}</option>
+              <option value="openai">{tr.optOpenaiOpt}</option>
+              <option value="ollama">{tr.optOllamaOpt}</option>
             </select>
           </label>
 
           {settings.provider === "openai" && (
             <>
               <label>
-                <span>OpenAI API key</span>
+                <span>{tr.optOpenaiKey}</span>
                 <input
                   type="password"
                   placeholder="sk-…"
@@ -203,7 +203,7 @@ pnpm host:install --extension-id ${chrome.runtime.id}
                 />
               </label>
               <label>
-                <span>Model</span>
+                <span>{tr.optModel}</span>
                 <input
                   value={settings.openaiModel}
                   onChange={(e) => setSettings({ ...settings, openaiModel: e.target.value })}
@@ -216,7 +216,7 @@ pnpm host:install --extension-id ${chrome.runtime.id}
           {settings.provider === "ollama" && (
             <>
               <label>
-                <span>Ollama URL</span>
+                <span>{tr.optOllamaUrl}</span>
                 <input
                   value={settings.ollamaUrl}
                   onChange={(e) => setSettings({ ...settings, ollamaUrl: e.target.value })}
@@ -224,7 +224,7 @@ pnpm host:install --extension-id ${chrome.runtime.id}
                 />
               </label>
               <label>
-                <span>Model</span>
+                <span>{tr.optModel}</span>
                 <input
                   value={settings.ollamaModel}
                   onChange={(e) => setSettings({ ...settings, ollamaModel: e.target.value })}
@@ -235,15 +235,28 @@ pnpm host:install --extension-id ${chrome.runtime.id}
           )}
 
           {settings.provider === "claude" && (
-            <p className="muted">
-              Uses your local <code>claude</code> CLI auth. No API key needed.
-            </p>
+            <p className="muted">{tr.optClaudeHint}</p>
           )}
         </div>
       </section>
 
       <section className="card">
-        <header><h2>Appearance</h2></header>
+        <header><h2>{tr.optLanguage}</h2></header>
+        <div className="theme-row">
+          {(["vi", "en"] as Lang[]).map((opt) => (
+            <button
+              key={opt}
+              className={"theme-pick" + (lang === opt ? " is-active" : "")}
+              onClick={() => setLang(opt)}
+            >
+              <span>{opt === "vi" ? tr.optLangVi : tr.optLangEn}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <header><h2>{tr.optAppearance}</h2></header>
         <div className="theme-row">
           {(["system", "dark", "light"] as ThemeChoice[]).map((opt) => (
             <button
@@ -255,23 +268,16 @@ pnpm host:install --extension-id ${chrome.runtime.id}
               }}
             >
               <span className={`theme-swatch theme-swatch-${opt}`} />
-              <span>{opt[0]!.toUpperCase() + opt.slice(1)}</span>
+              <span>{opt === "system" ? tr.optThemeSystem : opt === "dark" ? tr.optThemeDark : tr.optThemeLight}</span>
             </button>
           ))}
         </div>
-        <p className="muted" style={{ marginTop: 8 }}>
-          System follows your OS dark-mode preference. Persisted in localStorage so it loads instantly.
-        </p>
+        <p className="muted" style={{ marginTop: 8 }}>{tr.optThemeHint}</p>
       </section>
 
       <section className="card">
-        <h2>About</h2>
-        <p>
-          Memex stores all notes locally in SQLite via the native host. The
-          chosen AI provider runs on your machine (Claude CLI / Ollama) or against
-          your own API key (OpenAI) — there is no Memex backend.
-          The name nods to Vannevar Bush's 1945 essay <em>As We May Think</em>.
-        </p>
+        <h2>{tr.optAbout}</h2>
+        <p>{tr.optAboutBody}</p>
       </section>
     </div>
   );
