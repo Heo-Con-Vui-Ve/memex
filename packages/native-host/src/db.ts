@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import type {
   AiJobRow,
   ConversationRow,
+  FolderRow,
   MessageRow,
   NoteRow,
   ChatRole,
@@ -167,11 +168,34 @@ function tagsFor(d: Database.Database, ids: string[]): Map<string, string[]> {
   return map;
 }
 
-export function listNotes(limit = 100, offset = 0): NoteRow[] {
+export function listNotes(
+  limit = 100,
+  offset = 0,
+  filter: { folderId?: string | null; tag?: string } = {},
+): NoteRow[] {
   const d = openDb();
-  const rows = d
-    .prepare("SELECT * FROM notes ORDER BY updated_at DESC LIMIT ? OFFSET ?")
-    .all(limit, offset) as NoteRowDb[];
+  let rows: NoteRowDb[];
+  if (filter.tag) {
+    rows = d
+      .prepare(
+        `SELECT n.* FROM notes n
+         INNER JOIN note_tags t ON t.note_id = n.id AND t.tag = ?
+         ORDER BY n.updated_at DESC LIMIT ? OFFSET ?`,
+      )
+      .all(filter.tag, limit, offset) as NoteRowDb[];
+  } else if (filter.folderId === null) {
+    rows = d
+      .prepare("SELECT * FROM notes WHERE folder_id IS NULL ORDER BY updated_at DESC LIMIT ? OFFSET ?")
+      .all(limit, offset) as NoteRowDb[];
+  } else if (typeof filter.folderId === "string") {
+    rows = d
+      .prepare("SELECT * FROM notes WHERE folder_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?")
+      .all(filter.folderId, limit, offset) as NoteRowDb[];
+  } else {
+    rows = d
+      .prepare("SELECT * FROM notes ORDER BY updated_at DESC LIMIT ? OFFSET ?")
+      .all(limit, offset) as NoteRowDb[];
+  }
   const tags = tagsFor(d, rows.map((r) => r.id));
   return rows.map((r) => rowToNote(r, tags.get(r.id) ?? []));
 }
@@ -435,6 +459,74 @@ export function listAiJobs(limit = 50, status?: AiJobRow["status"]): AiJobRow[] 
         .prepare("SELECT * FROM ai_jobs ORDER BY updated_at DESC LIMIT ?")
         .all(limit) as AiJobRowDb[]);
   return rows.map(aiJobRowToApi);
+}
+
+// ---------- Folders ----------
+
+interface FolderRowDb {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+function folderRowToApi(d: Database.Database, r: FolderRowDb): FolderRow {
+  const noteCount = d
+    .prepare("SELECT COUNT(*) AS c FROM notes WHERE folder_id = ?")
+    .get(r.id) as { c: number };
+  return {
+    id: r.id,
+    name: r.name,
+    parentId: r.parent_id,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    noteCount: noteCount.c,
+  };
+}
+
+export function listFolders(): FolderRow[] {
+  const d = openDb();
+  const rows = d
+    .prepare("SELECT * FROM folders ORDER BY name ASC")
+    .all() as FolderRowDb[];
+  return rows.map((r) => folderRowToApi(d, r));
+}
+
+export function createFolder(name: string, parentId: string | null = null): FolderRow {
+  const d = openDb();
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  d.prepare(
+    "INSERT INTO folders(id, name, parent_id, created_at, updated_at) VALUES (?,?,?,?,?)",
+  ).run(id, name.trim() || "New folder", parentId, now, now);
+  const row = d.prepare("SELECT * FROM folders WHERE id = ?").get(id) as FolderRowDb;
+  return folderRowToApi(d, row);
+}
+
+export function renameFolder(id: string, name: string): FolderRow {
+  const d = openDb();
+  d.prepare("UPDATE folders SET name = ?, updated_at = ? WHERE id = ?").run(
+    name,
+    Date.now(),
+    id,
+  );
+  const row = d.prepare("SELECT * FROM folders WHERE id = ?").get(id) as
+    | FolderRowDb
+    | undefined;
+  if (!row) throw new Error("Folder not found");
+  return folderRowToApi(d, row);
+}
+
+export function deleteFolder(id: string, reassignToRoot = false): boolean {
+  const d = openDb();
+  const tx = d.transaction(() => {
+    if (reassignToRoot) {
+      d.prepare("UPDATE notes SET folder_id = NULL WHERE folder_id = ?").run(id);
+    }
+    return d.prepare("DELETE FROM folders WHERE id = ?").run(id).changes;
+  });
+  return tx() > 0;
 }
 
 // ---------- Settings (simple kv) ----------

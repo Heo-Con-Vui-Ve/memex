@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { MessageRow } from "@notepad-ai/shared";
+import { Icon } from "../../lib/Icons";
 
 interface Props {
   messages: MessageRow[];
@@ -17,8 +18,9 @@ export function MessageThread({ messages, streamingPreview, empty }: Props) {
   if (empty) {
     return (
       <div className="msg-thread is-empty">
+        <Icon.Sparkles size={28} />
         <h3>Start a new chat</h3>
-        <p>Talk to Claude directly. Conversations are stored in your local SQLite DB — nothing leaves your machine except what's sent to the CLI.</p>
+        <p>Talk to Claude directly. Conversations live in your local SQLite DB — nothing leaves your machine except what's sent to the CLI.</p>
       </div>
     );
   }

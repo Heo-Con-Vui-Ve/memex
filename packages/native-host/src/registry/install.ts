@@ -3,10 +3,6 @@ import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { HOST_NAME } from "@notepad-ai/shared";
 
-/**
- * Install the Chrome Native Messaging manifest pointing at our host binary.
- * MVP scope: Chrome on macOS. Linux + Edge + Windows: stubbed with clear errors.
- */
 export interface NativeHostManifest {
   name: string;
   description: string;
@@ -15,10 +11,18 @@ export interface NativeHostManifest {
   allowed_origins: string[];
 }
 
+export type Browser = "chrome" | "edge";
+
+/**
+ * Install the Native Messaging manifest pointing at our host binary.
+ * Supports Chrome + Edge on macOS, Linux, and Windows (manifest-file form only;
+ * Windows users still need to import the registry pointer separately).
+ */
 export function installNativeHost(opts: {
   extensionId: string;
   hostExecutablePath: string;
-}): { manifestPath: string; manifest: NativeHostManifest } {
+  browsers?: Browser[];
+}): { writes: Array<{ browser: Browser; manifestPath: string }>; manifest: NativeHostManifest } {
   if (!/^[a-p]{32}$/.test(opts.extensionId)) {
     throw new Error(
       `Extension ID looks wrong (expected 32 lowercase a-p chars), got: ${opts.extensionId}`,
@@ -27,40 +31,53 @@ export function installNativeHost(opts: {
 
   const absExe = resolve(opts.hostExecutablePath);
 
-  const manifest = {
+  const manifest: NativeHostManifest = {
     name: HOST_NAME,
     description: "notepad-ai native messaging host (Claude CLI bridge + SQLite storage)",
     path: absExe,
-    type: "stdio" as const,
+    type: "stdio",
     allowed_origins: [`chrome-extension://${opts.extensionId}/`],
   };
 
-  const manifestPath = chromeManifestPath();
-  mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
-  return { manifestPath, manifest };
+  const browsers = opts.browsers ?? ["chrome"];
+  const writes: Array<{ browser: Browser; manifestPath: string }> = [];
+
+  for (const browser of browsers) {
+    const manifestPath = manifestPathFor(browser);
+    if (!manifestPath) continue;
+    mkdirSync(dirname(manifestPath), { recursive: true });
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+    writes.push({ browser, manifestPath });
+  }
+
+  if (writes.length === 0) {
+    throw new Error(
+      `No supported browser found for platform ${platform()}. Pass --browser chrome|edge.`,
+    );
+  }
+
+  return { writes, manifest };
 }
 
-function chromeManifestPath(): string {
+function manifestPathFor(browser: Browser): string | null {
   const home = homedir();
   switch (platform()) {
     case "darwin":
-      return join(
-        home,
-        "Library",
-        "Application Support",
-        "Google",
-        "Chrome",
-        "NativeMessagingHosts",
-        `${HOST_NAME}.json`,
-      );
+      return browser === "chrome"
+        ? join(home, "Library", "Application Support", "Google", "Chrome", "NativeMessagingHosts", `${HOST_NAME}.json`)
+        : join(home, "Library", "Application Support", "Microsoft Edge", "NativeMessagingHosts", `${HOST_NAME}.json`);
     case "linux":
-      return join(home, ".config", "google-chrome", "NativeMessagingHosts", `${HOST_NAME}.json`);
-    case "win32":
-      throw new Error(
-        "Windows install is deferred to Phase 2 — manually write a .reg pointing HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts to your host manifest.",
-      );
+      return browser === "chrome"
+        ? join(home, ".config", "google-chrome", "NativeMessagingHosts", `${HOST_NAME}.json`)
+        : join(home, ".config", "microsoft-edge", "NativeMessagingHosts", `${HOST_NAME}.json`);
+    case "win32": {
+      // Windows requires a registry entry pointing at the manifest path — we
+      // write the manifest to disk; installCli prints the .reg command.
+      const base = process.env.LOCALAPPDATA ?? join(home, "AppData", "Local");
+      const sub = browser === "chrome" ? "Google\\Chrome\\User Data" : "Microsoft\\Edge\\User Data";
+      return join(base, sub, "NativeMessagingHosts", `${HOST_NAME}.json`);
+    }
     default:
-      throw new Error(`Unsupported platform: ${platform()}`);
+      return null;
   }
 }

@@ -12,6 +12,7 @@ const { values } = parseArgs({
   options: {
     "extension-id": { type: "string" },
     "host-bin": { type: "string" },
+    browsers: { type: "string", default: "chrome" },
   },
   strict: true,
 });
@@ -35,7 +36,9 @@ const tsxBin = join(__dirname, "..", "node_modules", ".bin", "tsx");
 const installerEntry = join(__dirname, "..", "src", "registry", "installCli.ts");
 
 const { spawn } = await import("node:child_process");
-const child = spawn(existsSync(tsxBin) ? tsxBin : "tsx", [installerEntry, extensionId, hostBin], {
-  stdio: "inherit",
-});
+const child = spawn(
+  existsSync(tsxBin) ? tsxBin : "tsx",
+  [installerEntry, extensionId, hostBin, values.browsers],
+  { stdio: "inherit" },
+);
 child.on("exit", (code) => process.exit(code ?? 0));

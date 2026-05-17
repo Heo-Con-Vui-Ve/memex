@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Icon } from "../../lib/Icons";
 
 interface Props {
   onSend: (text: string) => void;
@@ -16,9 +17,7 @@ export function ChatInput({ onSend, onCancel, streaming }: Props) {
     onSend(trimmed);
     setText("");
     requestAnimationFrame(() => {
-      if (ref.current) {
-        ref.current.style.height = "auto";
-      }
+      if (ref.current) ref.current.style.height = "auto";
     });
   }
 
@@ -34,10 +33,9 @@ export function ChatInput({ onSend, onCancel, streaming }: Props) {
         ref={ref}
         value={text}
         rows={1}
-        placeholder={streaming ? "Streaming…" : "Message Claude (⌘↵ send)"}
+        placeholder={streaming ? "Streaming…" : "Message Claude  (⌘↵)"}
         onChange={(e) => {
           setText(e.target.value);
-          // auto-grow up to 8 rows
           const el = e.target;
           el.style.height = "auto";
           el.style.height = Math.min(el.scrollHeight, 200) + "px";
@@ -51,9 +49,13 @@ export function ChatInput({ onSend, onCancel, streaming }: Props) {
         disabled={streaming}
       />
       {streaming ? (
-        <button type="button" onClick={onCancel} className="chat-cancel">Stop</button>
+        <button type="button" onClick={onCancel} className="chat-cancel" title="Stop">
+          <Icon.Stop size={14} />
+        </button>
       ) : (
-        <button type="submit" disabled={!text.trim()} className="chat-send">Send</button>
+        <button type="submit" disabled={!text.trim()} className="chat-send" title="Send (⌘↵)">
+          <Icon.Send size={14} />
+        </button>
       )}
     </form>
   );

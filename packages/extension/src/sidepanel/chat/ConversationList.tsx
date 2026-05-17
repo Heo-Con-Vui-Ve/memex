@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ConversationRow } from "@notepad-ai/shared";
+import { Icon } from "../../lib/Icons";
 
 interface Props {
   items: ConversationRow[];
@@ -54,7 +55,9 @@ export function ConversationList({ items, activeId, onSelect, onDelete, onRename
                 e.stopPropagation();
                 onDelete(c.id);
               }}
-            >×</button>
+            >
+              <Icon.Trash size={12} />
+            </button>
           </li>
         );
       })}

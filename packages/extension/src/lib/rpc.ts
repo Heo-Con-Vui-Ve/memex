@@ -120,4 +120,16 @@ export const is = {
     r.type === "messages.list.result",
   jobList: (r: HostResponse): r is Extract<HostResponse, { type: "ai-jobs.list.result" }> =>
     r.type === "ai-jobs.list.result",
+  folderList: (r: HostResponse): r is Extract<HostResponse, { type: "folders.list.result" }> =>
+    r.type === "folders.list.result",
+  folderCreated: (r: HostResponse): r is Extract<HostResponse, { type: "folders.create.result" }> =>
+    r.type === "folders.create.result",
+  folderRenamed: (r: HostResponse): r is Extract<HostResponse, { type: "folders.rename.result" }> =>
+    r.type === "folders.rename.result",
+  folderDeleted: (r: HostResponse): r is Extract<HostResponse, { type: "folders.delete.result" }> =>
+    r.type === "folders.delete.result",
+  settingGet: (r: HostResponse): r is Extract<HostResponse, { type: "settings.get.result" }> =>
+    r.type === "settings.get.result",
+  settingSet: (r: HostResponse): r is Extract<HostResponse, { type: "settings.set.result" }> =>
+    r.type === "settings.set.result",
 };

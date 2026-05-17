@@ -10,6 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codemirror/commands": "6.6.2",
+    "@codemirror/lang-markdown": "6.3.0",
+    "@codemirror/language": "6.10.3",
+    "@codemirror/state": "6.4.1",
+    "@codemirror/view": "6.34.1",
+    "@lezer/highlight": "1.2.1",
     "@notepad-ai/shared": "workspace:*",
     "react": "18.3.1",
     "react-dom": "18.3.1"

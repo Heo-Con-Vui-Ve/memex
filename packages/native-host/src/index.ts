@@ -22,6 +22,12 @@ import {
   appendJobOutput,
   finalizeJob,
   listAiJobs,
+  listFolders,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  getSetting,
+  setSetting,
 } from "./db.js";
 import { runChat } from "./chatRunner.js";
 import type { HostErrorCode } from "@notepad-ai/shared";
@@ -185,8 +191,69 @@ async function handle(req: HostRequest): Promise<void> {
 
     case "notes.list": {
       try {
-        const notes = listNotes(req.payload.limit ?? 100, req.payload.offset ?? 0);
+        const notes = listNotes(req.payload.limit ?? 100, req.payload.offset ?? 0, {
+          folderId: req.payload.folderId,
+          tag: req.payload.tag,
+        });
         write({ requestId: req.requestId, type: "notes.list.result", notes });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "folders.list": {
+      try {
+        write({ requestId: req.requestId, type: "folders.list.result", folders: listFolders() });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "folders.create": {
+      try {
+        const folder = createFolder(req.payload.name, req.payload.parentId ?? null);
+        write({ requestId: req.requestId, type: "folders.create.result", folder });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "folders.rename": {
+      try {
+        const folder = renameFolder(req.payload.id, req.payload.name);
+        write({ requestId: req.requestId, type: "folders.rename.result", folder });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "folders.delete": {
+      try {
+        const deleted = deleteFolder(req.payload.id, req.payload.reassignToRoot ?? false);
+        write({ requestId: req.requestId, type: "folders.delete.result", deleted });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "settings.get": {
+      try {
+        write({ requestId: req.requestId, type: "settings.get.result", value: getSetting(req.payload.key) });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "settings.set": {
+      try {
+        setSetting(req.payload.key, req.payload.value);
+        write({ requestId: req.requestId, type: "settings.set.result", ok: true });
       } catch (err) {
         write(errResp(req.requestId, "INTERNAL", (err as Error).message));
       }

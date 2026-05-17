@@ -1,22 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import type { NoteRow } from "@notepad-ai/shared";
+import type { FolderRow, NoteRow } from "@notepad-ai/shared";
 import { is, request } from "../../lib/rpc";
 import { AiActionBar } from "./AiActionBar";
 import { TagsInput } from "./TagsInput";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { Icon } from "../../lib/Icons";
 
 interface Props {
   note: NoteRow;
+  folders: FolderRow[];
   onSaved: (n: NoteRow) => void;
   onDeleted: () => void;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
 
-export function Editor({ note, onSaved, onDeleted }: Props) {
+export function Editor({ note, folders, onSaved, onDeleted }: Props) {
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.contentMd);
   const [tags, setTags] = useState<string[]>(note.tags);
+  const [folderId, setFolderId] = useState<string | null>(note.folderId);
   const [saving, setSaving] = useState(false);
   const dirtyRef = useRef(false);
   const debouncer = useRef<number | null>(null);
@@ -25,8 +28,9 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
     setTitle(note.title);
     setBody(note.contentMd);
     setTags(note.tags);
+    setFolderId(note.folderId);
     dirtyRef.current = false;
-  }, [note.id, note.title, note.contentMd, note.tags]);
+  }, [note.id, note.title, note.contentMd, note.tags, note.folderId]);
 
   function scheduleSave() {
     dirtyRef.current = true;
@@ -43,6 +47,7 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
         title: title.trim() || "Untitled",
         contentMd: body,
         tags,
+        folderId,
         updatedAt: Date.now(),
       };
       const res = await request(
@@ -84,13 +89,28 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
         }}
         placeholder="Untitled"
       />
-      <TagsInput
-        tags={tags}
-        onChange={(t) => {
-          setTags(t);
-          scheduleSave();
-        }}
-      />
+      <div className="editor-meta">
+        <select
+          value={folderId ?? ""}
+          onChange={(e) => {
+            setFolderId(e.target.value || null);
+            scheduleSave();
+          }}
+          className="folder-select"
+        >
+          <option value="">Unsorted</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+        <TagsInput
+          tags={tags}
+          onChange={(t) => {
+            setTags(t);
+            scheduleSave();
+          }}
+        />
+      </div>
       <MarkdownEditor
         value={body}
         onChange={(v) => {
@@ -103,10 +123,18 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
           noteBody={body}
           onChunk={appendAiOutput}
           onDone={finalizeAiOutput}
+          onAutoMetadata={(meta) => {
+            if (meta.title) setTitle(meta.title);
+            if (meta.tags) setTags(meta.tags);
+            dirtyRef.current = true;
+            void save();
+          }}
         />
         <div className="editor-status">
-          {saving ? "Saving…" : "Saved"}
-          <button className="danger" onClick={() => void del()}>Delete</button>
+          <span>{saving ? "Saving…" : "All changes saved"}</span>
+          <button className="ghost danger" onClick={() => void del()}>
+            <Icon.Trash size={13} /> Delete
+          </button>
         </div>
       </footer>
     </div>

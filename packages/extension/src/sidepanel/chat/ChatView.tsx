@@ -4,6 +4,7 @@ import { is, request, stream } from "../../lib/rpc";
 import { ConversationList } from "./ConversationList";
 import { MessageThread } from "./MessageThread";
 import { ChatInput } from "./ChatInput";
+import { Icon } from "../../lib/Icons";
 
 export function ChatView() {
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
@@ -144,7 +145,9 @@ export function ChatView() {
   return (
     <div className="chat-shell">
       <aside className="chat-side">
-        <button className="chat-new" onClick={() => void newConversation()}>+ New chat</button>
+        <button className="chat-new" onClick={() => void newConversation()}>
+          <Icon.Plus size={14} /> New chat
+        </button>
         <ConversationList
           items={conversations}
           activeId={activeId}

@@ -47,7 +47,9 @@ export interface NoteRow {
 export interface NotesListPayload {
   limit?: number;
   offset?: number;
-  /** Future: folderId/tag filters. */
+  /** Filter by folder. `null` means unsorted (no folder). Undefined = no filter. */
+  folderId?: string | null;
+  tag?: string;
 }
 
 export interface NotesGetPayload {
@@ -112,6 +114,32 @@ export interface ChatInvokePayload {
   timeoutMs?: number;
 }
 
+// --- Folders ---
+
+export interface FolderRow {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  noteCount: number;
+}
+
+export interface FoldersListPayload {}
+export interface FoldersCreatePayload {
+  name: string;
+  parentId?: string | null;
+}
+export interface FoldersRenamePayload {
+  id: string;
+  name: string;
+}
+export interface FoldersDeletePayload {
+  id: string;
+  /** If true: notes in this folder become unsorted (folderId=null). If false and folder has notes, error. */
+  reassignToRoot?: boolean;
+}
+
 // --- AI jobs (persistent) ---
 
 export interface AiJobsListPayload {
@@ -134,7 +162,13 @@ export type HostRequest =
   | { requestId: string; type: "conversations.delete"; payload: ConversationsDeletePayload }
   | { requestId: string; type: "messages.list"; payload: MessagesListPayload }
   | { requestId: string; type: "chat.invoke"; payload: ChatInvokePayload }
-  | { requestId: string; type: "ai-jobs.list"; payload: AiJobsListPayload };
+  | { requestId: string; type: "ai-jobs.list"; payload: AiJobsListPayload }
+  | { requestId: string; type: "folders.list"; payload: FoldersListPayload }
+  | { requestId: string; type: "folders.create"; payload: FoldersCreatePayload }
+  | { requestId: string; type: "folders.rename"; payload: FoldersRenamePayload }
+  | { requestId: string; type: "folders.delete"; payload: FoldersDeletePayload }
+  | { requestId: string; type: "settings.get"; payload: { key: string } }
+  | { requestId: string; type: "settings.set"; payload: { key: string; value: string } };
 
 export type HostErrorCode =
   | "CLI_NOT_FOUND"
@@ -173,7 +207,13 @@ export type HostResponse =
   | { requestId: string; type: "conversations.rename.result"; conversation: ConversationRow }
   | { requestId: string; type: "conversations.delete.result"; deleted: boolean }
   | { requestId: string; type: "messages.list.result"; messages: MessageRow[] }
-  | { requestId: string; type: "ai-jobs.list.result"; jobs: AiJobRow[] };
+  | { requestId: string; type: "ai-jobs.list.result"; jobs: AiJobRow[] }
+  | { requestId: string; type: "folders.list.result"; folders: FolderRow[] }
+  | { requestId: string; type: "folders.create.result"; folder: FolderRow }
+  | { requestId: string; type: "folders.rename.result"; folder: FolderRow }
+  | { requestId: string; type: "folders.delete.result"; deleted: boolean }
+  | { requestId: string; type: "settings.get.result"; value: string | null }
+  | { requestId: string; type: "settings.set.result"; ok: true };
 
 export interface AiJobRow {
   id: string;
