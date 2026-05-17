@@ -73,15 +73,19 @@ export function Options() {
   }
 
   async function saveSettings() {
-    await Promise.all([
-      writeSetting("ai.provider", settings.provider),
-      writeSetting("ai.openai.apiKey", settings.openaiApiKey),
-      writeSetting("ai.openai.model", settings.openaiModel),
-      writeSetting("ai.ollama.url", settings.ollamaUrl),
-      writeSetting("ai.ollama.model", settings.ollamaModel),
-    ]);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 1800);
+    try {
+      await Promise.all([
+        writeSetting("ai.provider", settings.provider),
+        writeSetting("ai.openai.apiKey", settings.openaiApiKey),
+        writeSetting("ai.openai.model", settings.openaiModel),
+        writeSetting("ai.ollama.url", settings.ollamaUrl),
+        writeSetting("ai.ollama.model", settings.ollamaModel),
+      ]);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1800);
+    } catch (err) {
+      setTest({ kind: "fail", message: (err as Error).message, provider: settings.provider });
+    }
   }
 
   async function testProvider() {
@@ -104,8 +108,8 @@ export function Options() {
   }
 
   useEffect(() => {
-    void check();
-    void loadSettings();
+    check().catch(() => {});
+    loadSettings().catch(() => {});
   }, []);
 
   return (
@@ -115,7 +119,7 @@ export function Options() {
       <section className="card">
         <header>
           <h2>Native host</h2>
-          <button onClick={() => void check()}>Re-check</button>
+          <button onClick={() => { check().catch(() => {}); }}>Re-check</button>
         </header>
         {status.kind === "checking" && <p>Pinging native host…</p>}
         {status.kind === "fail" && (
@@ -149,13 +153,13 @@ pnpm host:install --extension-id ${chrome.runtime.id}
           <h2>AI provider</h2>
           <div className="card-actions">
             <button
-              onClick={() => void testProvider()}
+              onClick={() => { testProvider().catch(() => {}); }}
               disabled={test.kind === "running" || status.kind !== "ok"}
               title={status.kind !== "ok" ? "Native host must be reachable first" : "Test the chosen provider"}
             >
               {test.kind === "running" ? "Testing…" : "Test connection"}
             </button>
-            <button className="primary" onClick={() => void saveSettings()}>
+            <button className="primary" onClick={() => { saveSettings().catch(() => {}); }}>
               {savedFlash ? "Saved ✓" : "Save"}
             </button>
           </div>

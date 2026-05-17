@@ -42,9 +42,15 @@ export function request<T extends HostResponse>(
   req: Omit<HostRequest, "requestId">,
   matcher: (r: HostResponse) => r is T,
 ): Promise<T> {
-  const p = ensurePort();
   const requestId = newRequestId();
   return new Promise<T>((resolve, reject) => {
+    let p: chrome.runtime.Port;
+    try {
+      p = ensurePort();
+    } catch (err) {
+      reject(err);
+      return;
+    }
     listeners.set(requestId, (r) => {
       if (matcher(r)) {
         listeners.delete(requestId);
@@ -55,7 +61,12 @@ export function request<T extends HostResponse>(
       }
       // else: ignore (e.g. chunk noise for the wrong request shape)
     });
-    p.postMessage({ ...req, requestId } as HostRequest);
+    try {
+      p.postMessage({ ...req, requestId } as HostRequest);
+    } catch (err) {
+      listeners.delete(requestId);
+      reject(err);
+    }
   });
 }
 
