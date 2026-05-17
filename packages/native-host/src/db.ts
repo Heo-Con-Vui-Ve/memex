@@ -3,11 +3,8 @@ import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import type {
   AiJobRow,
-  ConversationRow,
   FolderRow,
-  MessageRow,
   NoteRow,
-  ChatRole,
 } from "@memex/shared";
 import { getDbPath } from "./paths.js";
 
@@ -57,7 +54,6 @@ function migrate(d: Database.Database): void {
     CREATE TABLE IF NOT EXISTS ai_jobs (
       id TEXT PRIMARY KEY,
       note_id TEXT REFERENCES notes(id) ON DELETE SET NULL,
-      conversation_id TEXT,
       mode TEXT NOT NULL,
       status TEXT NOT NULL,
       prompt_preview TEXT NOT NULL,
@@ -67,21 +63,6 @@ function migrate(d: Database.Database): void {
       updated_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_jobs(status, updated_at DESC);
-    CREATE TABLE IF NOT EXISTS conversations (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_conv_updated ON conversations(updated_at DESC);
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-      role TEXT NOT NULL CHECK (role IN ('user','assistant','system')),
-      content TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at);
     CREATE TABLE IF NOT EXISTS folders (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -109,23 +90,9 @@ function migrate(d: Database.Database): void {
       INSERT INTO notes_fts(rowid, title, content_md) VALUES (new.rowid, new.title, new.content_md);
     END;
   `);
-  // Idempotent column-level migrations for users upgrading from earlier schemas.
-  addColumnIfMissing(d, "ai_jobs", "conversation_id", "TEXT");
-
   d.prepare(
-    "INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('version', '2')",
+    "INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('version', '3')",
   ).run();
-}
-
-function addColumnIfMissing(
-  d: Database.Database,
-  table: string,
-  column: string,
-  decl: string,
-): void {
-  const cols = d.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  if (cols.some((c) => c.name === column)) return;
-  d.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
 }
 
 interface NoteRowDb {
@@ -247,138 +214,11 @@ export function deleteNote(id: string): boolean {
   return info.changes > 0;
 }
 
-// ---------- Conversations + messages ----------
-
-interface ConvRowDb {
-  id: string;
-  title: string;
-  created_at: number;
-  updated_at: number;
-  message_count: number;
-}
-
-export function listConversations(limit = 100): ConversationRow[] {
-  const d = openDb();
-  const rows = d
-    .prepare(
-      `SELECT c.id, c.title, c.created_at, c.updated_at,
-              (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count
-         FROM conversations c
-         ORDER BY c.updated_at DESC
-         LIMIT ?`,
-    )
-    .all(limit) as ConvRowDb[];
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-    messageCount: r.message_count,
-  }));
-}
-
-export function getConversation(id: string): ConversationRow | null {
-  const d = openDb();
-  const row = d
-    .prepare(
-      `SELECT c.id, c.title, c.created_at, c.updated_at,
-              (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count
-         FROM conversations c WHERE id = ?`,
-    )
-    .get(id) as ConvRowDb | undefined;
-  if (!row) return null;
-  return {
-    id: row.id,
-    title: row.title,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    messageCount: row.message_count,
-  };
-}
-
-export function createConversation(title?: string): ConversationRow {
-  const d = openDb();
-  const now = Date.now();
-  const id = crypto.randomUUID();
-  d.prepare(
-    "INSERT INTO conversations(id, title, created_at, updated_at) VALUES (?,?,?,?)",
-  ).run(id, title?.trim() || "New chat", now, now);
-  return getConversation(id)!;
-}
-
-export function renameConversation(id: string, title: string): ConversationRow {
-  const d = openDb();
-  d.prepare("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?").run(
-    title,
-    Date.now(),
-    id,
-  );
-  const row = getConversation(id);
-  if (!row) throw new Error("Conversation not found");
-  return row;
-}
-
-export function deleteConversation(id: string): boolean {
-  const d = openDb();
-  const info = d.prepare("DELETE FROM conversations WHERE id = ?").run(id);
-  return info.changes > 0;
-}
-
-export function listMessages(conversationId: string): MessageRow[] {
-  const d = openDb();
-  const rows = d
-    .prepare(
-      "SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
-    )
-    .all(conversationId) as Array<{
-      id: string;
-      conversation_id: string;
-      role: ChatRole;
-      content: string;
-      created_at: number;
-    }>;
-  return rows.map((r) => ({
-    id: r.id,
-    conversationId: r.conversation_id,
-    role: r.role,
-    content: r.content,
-    createdAt: r.created_at,
-  }));
-}
-
-export function appendMessage(args: {
-  conversationId: string;
-  role: ChatRole;
-  content: string;
-}): MessageRow {
-  const d = openDb();
-  const now = Date.now();
-  const id = crypto.randomUUID();
-  const tx = d.transaction(() => {
-    d.prepare(
-      "INSERT INTO messages(id, conversation_id, role, content, created_at) VALUES (?,?,?,?,?)",
-    ).run(id, args.conversationId, args.role, args.content, now);
-    d.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").run(
-      now,
-      args.conversationId,
-    );
-  });
-  tx();
-  return {
-    id,
-    conversationId: args.conversationId,
-    role: args.role,
-    content: args.content,
-    createdAt: now,
-  };
-}
-
 // ---------- AI jobs ----------
 
 interface AiJobRowDb {
   id: string;
   note_id: string | null;
-  conversation_id: string | null;
   mode: string;
   status: AiJobRow["status"];
   prompt_preview: string;
@@ -392,7 +232,6 @@ function aiJobRowToApi(r: AiJobRowDb): AiJobRow {
   return {
     id: r.id,
     noteId: r.note_id,
-    conversationId: r.conversation_id,
     mode: r.mode,
     status: r.status,
     promptPreview: r.prompt_preview,
@@ -405,7 +244,6 @@ function aiJobRowToApi(r: AiJobRowDb): AiJobRow {
 
 export function startAiJob(args: {
   noteId?: string | null;
-  conversationId?: string | null;
   mode: string;
   promptPreview: string;
 }): AiJobRow {
@@ -413,12 +251,11 @@ export function startAiJob(args: {
   const now = Date.now();
   const id = crypto.randomUUID();
   d.prepare(
-    `INSERT INTO ai_jobs(id, note_id, conversation_id, mode, status, prompt_preview, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'running', ?, ?, ?)`,
+    `INSERT INTO ai_jobs(id, note_id, mode, status, prompt_preview, created_at, updated_at)
+     VALUES (?, ?, ?, 'running', ?, ?, ?)`,
   ).run(
     id,
     args.noteId ?? null,
-    args.conversationId ?? null,
     args.mode,
     args.promptPreview.slice(0, 200),
     now,

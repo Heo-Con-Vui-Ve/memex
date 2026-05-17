@@ -72,7 +72,7 @@ export function request<T extends HostResponse>(
 
 /** Streaming request → chunk/done/error callbacks. Returns a cancel handle. */
 export function stream(
-  req: Omit<HostRequest, "requestId"> & { type: "claude.invoke" | "chat.invoke" },
+  req: Omit<HostRequest, "requestId"> & { type: "claude.invoke" },
   cb: {
     onChunk: (text: string, seq: number) => void;
     onDone: (totalMs: number) => void;
@@ -119,16 +119,6 @@ export const is = {
     r.type === "notes.delete.result",
   searchResult: (r: HostResponse): r is Extract<HostResponse, { type: "notes.search.result" }> =>
     r.type === "notes.search.result",
-  convList: (r: HostResponse): r is Extract<HostResponse, { type: "conversations.list.result" }> =>
-    r.type === "conversations.list.result",
-  convCreated: (r: HostResponse): r is Extract<HostResponse, { type: "conversations.create.result" }> =>
-    r.type === "conversations.create.result",
-  convRenamed: (r: HostResponse): r is Extract<HostResponse, { type: "conversations.rename.result" }> =>
-    r.type === "conversations.rename.result",
-  convDeleted: (r: HostResponse): r is Extract<HostResponse, { type: "conversations.delete.result" }> =>
-    r.type === "conversations.delete.result",
-  msgList: (r: HostResponse): r is Extract<HostResponse, { type: "messages.list.result" }> =>
-    r.type === "messages.list.result",
   jobList: (r: HostResponse): r is Extract<HostResponse, { type: "ai-jobs.list.result" }> =>
     r.type === "ai-jobs.list.result",
   folderList: (r: HostResponse): r is Extract<HostResponse, { type: "folders.list.result" }> =>

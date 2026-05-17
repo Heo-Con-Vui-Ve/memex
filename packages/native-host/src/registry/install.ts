@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { HOST_NAME } from "@memex/shared";
@@ -31,10 +31,18 @@ export function installNativeHost(opts: {
 
   const absExe = resolve(opts.hostExecutablePath);
 
+  // Chrome spawns native hosts with a minimal PATH (typically
+  // /usr/bin:/bin:/usr/sbin:/sbin on macOS) so the `#!/usr/bin/env node`
+  // shebang inside the .mjs can't find node when it lives at
+  // /opt/homebrew/bin/node (Apple Silicon Homebrew), ~/.nvm/.../node, etc.
+  // Wrap the .mjs in a launcher script with the *absolute* node path baked
+  // in, and point the manifest at the launcher instead.
+  const launcherPath = writeLauncher(absExe);
+
   const manifest: NativeHostManifest = {
     name: HOST_NAME,
     description: "Memex native messaging host (Claude CLI bridge + SQLite storage)",
-    path: absExe,
+    path: launcherPath,
     type: "stdio",
     allowed_origins: [`chrome-extension://${opts.extensionId}/`],
   };
@@ -57,6 +65,22 @@ export function installNativeHost(opts: {
   }
 
   return { writes, manifest };
+}
+
+function writeLauncher(hostMjsPath: string): string {
+  const nodePath = process.execPath;
+  const dir = dirname(hostMjsPath);
+  if (platform() === "win32") {
+    const launcher = join(dir, "memex-host-launcher.cmd");
+    const body = `@echo off\r\n"${nodePath}" "${hostMjsPath}" %*\r\n`;
+    writeFileSync(launcher, body, "utf8");
+    return launcher;
+  }
+  const launcher = join(dir, "memex-host-launcher.sh");
+  const body = `#!/bin/sh\nexec "${nodePath}" "${hostMjsPath}" "$@"\n`;
+  writeFileSync(launcher, body, "utf8");
+  chmodSync(launcher, 0o755);
+  return launcher;
 }
 
 function manifestPathFor(browser: Browser): string | null {

@@ -14,10 +14,16 @@
   --fg: #f4f4f5;
   --fg-dim: #a1a1aa;
   --fg-faint: #71717a;
-  --accent: #8b5cf6;
-  --accent-2: #c084fc;
-  --accent-soft: rgba(139,92,246,0.12);
-  --accent-ring: rgba(139,92,246,0.35);
+  /* Sky-blue accent system, anchored on #B8E1FF. On a dark bg the pale
+     sky reads as a soft glowing primary; the deeper -2 variant is for
+     hovers / emphasis where #B8E1FF would wash out. */
+  --accent: #B8E1FF;
+  --accent-2: #7AC4F5;
+  --accent-soft: rgba(184, 225, 255, 0.14);
+  --accent-ring: rgba(184, 225, 255, 0.4);
+  /* Text color to use ON the accent bg (e.g. primary buttons). On dark
+     mode the accent is light, so the on-accent text must be dark. */
+  --on-accent: #0a1e3a;
   --ok: #4ade80;
   --warn: #fbbf24;
   --danger: #f87171;
@@ -37,10 +43,13 @@
   --fg: #18181b;
   --fg-dim: #52525b;
   --fg-faint: #a1a1aa;
-  --accent: #7c3aed;
-  --accent-2: #9333ea;
-  --accent-soft: rgba(124,58,237,0.1);
-  --accent-ring: rgba(124,58,237,0.3);
+  /* In light mode #B8E1FF is invisible on white — fall to a deeper sky
+     (sky-500) that still belongs to the same blue family. */
+  --accent: #0EA5E9;
+  --accent-2: #0284C7;
+  --accent-soft: rgba(14, 165, 233, 0.1);
+  --accent-ring: rgba(14, 165, 233, 0.3);
+  --on-accent: #ffffff;
   --ok: #16a34a;
   --warn: #d97706;
   --danger: #dc2626;
@@ -87,8 +96,8 @@ button {
 button:hover:not(:disabled) { background: var(--bg-4); border-color: var(--border-strong); }
 button:active:not(:disabled) { transform: scale(0.97); }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
-button.primary { background: var(--accent); border-color: var(--accent); color: white; }
-button.primary:hover:not(:disabled) { background: #9d6cf8; border-color: #9d6cf8; box-shadow: 0 0 0 3px var(--accent-ring); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--accent-ring); }
 button.danger { color: var(--danger); }
 button.danger:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 button.ghost { background: transparent; border-color: transparent; color: var(--fg-dim); }
@@ -322,6 +331,7 @@ kbd {
   border: none;
   background: transparent;
   padding: 0;
+  flex-shrink: 0;
 }
 .editor-title:focus { outline: none; box-shadow: none; }
 .tags-input {
@@ -335,6 +345,7 @@ kbd {
   border-radius: var(--r-md);
   background: var(--bg-2);
   transition: border-color var(--t-fast) var(--ease);
+  flex-shrink: 0;
 }
 .tags-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 .tags-input input {
@@ -370,9 +381,161 @@ kbd {
 }
 .tag-chip button:hover { opacity: 1; color: var(--danger); background: transparent; }
 
-.cm-host { flex: 1; min-height: 200px; margin: 8px 0 0; overflow: hidden; display: flex; }
-.cm-host > .cm-editor { flex: 1; width: 100%; }
-.cm-host .cm-scroller { overflow-y: auto; padding: 0 16px; }
+/* Rich (WYSIWYG) editor — typography-first, no monospace, no line numbers. */
+.rich-host {
+  flex: 1 1 0;
+  min-height: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+}
+.rich-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.rich-tb-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+  min-width: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-dim);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  font-family: inherit;
+}
+.rich-tb-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.rich-tb-btn.is-active { background: var(--accent-soft); color: var(--accent); }
+.rich-tb-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+  align-self: center;
+}
+.rich-host .ProseMirror {
+  flex: 1 1 0;
+  /* min-height: 0 lets the flex item shrink below its natural content size so
+     overflow-y can actually clip; without this the body grows to fit the doc
+     and the editor footer ends up rendered ON TOP of the trailing content. */
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px 24px;
+  outline: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--fg);
+  caret-color: var(--accent);
+}
+.rich-host .ProseMirror > * + * { margin-top: 0.6em; }
+.rich-host .ProseMirror p { margin: 0; }
+.rich-host .ProseMirror h1 {
+  font-size: 1.6em; font-weight: 700; letter-spacing: -0.02em;
+  margin-top: 0.8em;
+}
+.rich-host .ProseMirror h2 {
+  font-size: 1.3em; font-weight: 700; letter-spacing: -0.015em;
+  margin-top: 0.8em;
+}
+.rich-host .ProseMirror h3 {
+  font-size: 1.1em; font-weight: 600;
+  margin-top: 0.7em;
+}
+.rich-host .ProseMirror strong { font-weight: 700; color: var(--fg); }
+.rich-host .ProseMirror em { font-style: italic; }
+.rich-host .ProseMirror s { text-decoration: line-through; color: var(--fg-dim); }
+.rich-host .ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-underline-offset: 2px;
+}
+.rich-host .ProseMirror code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  padding: 1px 5px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  color: var(--accent-2);
+}
+.rich-host .ProseMirror pre {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.rich-host .ProseMirror pre code {
+  padding: 0; background: transparent; color: inherit; font-size: inherit;
+}
+.rich-host .ProseMirror blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 12px;
+  color: var(--fg-dim);
+  font-style: italic;
+  margin: 0;
+}
+.rich-host .ProseMirror ul,
+.rich-host .ProseMirror ol { padding-left: 22px; margin: 0; }
+.rich-host .ProseMirror ul li,
+.rich-host .ProseMirror ol li { margin: 2px 0; }
+.rich-host .ProseMirror ul[data-type="taskList"] {
+  list-style: none; padding-left: 0;
+}
+.rich-host .ProseMirror ul[data-type="taskList"] li {
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.rich-host .ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0; margin-top: 4px;
+}
+.rich-host .ProseMirror ul[data-type="taskList"] li > div { flex: 1; }
+.rich-host .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--bg-1);
+  position: relative;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.rich-host .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--accent); border-color: var(--accent);
+}
+.rich-host .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px; top: 1px;
+  width: 4px; height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.rich-host .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--fg-faint);
+}
+.rich-host .ProseMirror hr {
+  border: none; border-top: 1px solid var(--border); margin: 1em 0;
+}
+.rich-host .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--fg-faint);
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
 
 .editor-footer {
   flex-shrink: 0;
@@ -380,10 +543,51 @@ kbd {
   padding: 10px 12px;
   background: var(--bg-1);
 }
+.ai-wrap { display: flex; flex-direction: column; gap: 10px; }
 .ai-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .ai-btn { font-size: 11px; padding: 5px 10px; font-weight: 500; }
 .ai-btn.is-running { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.ai-error { color: var(--danger); font-size: 11px; padding: 4px 8px; background: var(--danger-soft); border-radius: var(--r-sm); }
+
+.ai-panel {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  overflow: hidden;
+  max-height: 280px;
+}
+.ai-panel-running { border-color: var(--accent); }
+.ai-panel-error { border-color: var(--danger); }
+.ai-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  background: var(--bg-1);
+}
+.ai-panel-head strong { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--fg); }
+.ai-panel-x { font-size: 11px; padding: 2px 8px; }
+.ai-panel-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--fg);
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 60px;
+}
+.ai-panel-err { padding: 10px 12px; color: var(--danger); font-size: 12px; background: var(--danger-soft); }
+.ai-panel-actions {
+  display: flex; gap: 6px; align-items: center;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
+}
+.ai-panel-actions button { font-size: 11px; padding: 5px 10px; }
 
 /* ==========================================================
    OPTIONS PAGE
@@ -426,6 +630,6 @@ body.options { background: var(--bg); padding: 48px 32px; max-width: 760px; marg
 .theme-pick { padding: 10px 14px; flex-direction: column; gap: 6px; min-width: 100px; }
 .theme-pick.is-active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .theme-swatch { width: 40px; height: 24px; border-radius: 4px; display: block; border: 1px solid var(--border); }
-.theme-swatch-dark { background: linear-gradient(135deg, #0a0a0b 50%, #8b5cf6 50%); }
-.theme-swatch-light { background: linear-gradient(135deg, #ffffff 50%, #8b5cf6 50%); }
+.theme-swatch-dark { background: linear-gradient(135deg, #0a0a0b 50%, #B8E1FF 50%); }
+.theme-swatch-light { background: linear-gradient(135deg, #ffffff 50%, #0EA5E9 50%); }
 .theme-swatch-system { background: linear-gradient(135deg, #0a0a0b 50%, #ffffff 50%); }

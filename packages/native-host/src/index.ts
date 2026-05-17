@@ -2,8 +2,8 @@ import { createRequire } from "node:module";
 import type { HostRequest, HostResponse } from "@memex/shared";
 import { MessageFramer, encodeMessage } from "./framing.js";
 import { runClaude, detectClaude, type RunHandle } from "./claudeRunner.js";
-void appendMessage;
 import { log } from "./logger.js";
+import { ensureRichPath } from "./env.js";
 import { getDbPath } from "./paths.js";
 import {
   openDb,
@@ -12,12 +12,6 @@ import {
   upsertNote,
   deleteNote,
   searchNotes,
-  listConversations,
-  createConversation,
-  renameConversation,
-  deleteConversation,
-  listMessages,
-  appendMessage,
   startAiJob,
   appendJobOutput,
   finalizeJob,
@@ -29,7 +23,6 @@ import {
   getSetting,
   setSetting,
 } from "./db.js";
-import { runChat } from "./chatRunner.js";
 import { getActiveProvider, getProviderByName, type ProviderName } from "./providers/index.js";
 import type { HostErrorCode } from "@memex/shared";
 
@@ -86,89 +79,6 @@ async function handle(req: HostRequest): Promise<void> {
         },
       });
       inflight.set(req.requestId, handle);
-      return;
-    }
-
-    case "chat.invoke": {
-      let seq = 0;
-      const job = startAiJob({
-        conversationId: req.payload.conversationId,
-        mode: "chat",
-        promptPreview: req.payload.userMessage,
-      });
-      const handle = runChat({
-        conversationId: req.payload.conversationId,
-        userMessage: req.payload.userMessage,
-        attachNoteIds: req.payload.attachNoteIds,
-        timeoutMs: req.payload.timeoutMs,
-        cb: {
-          onChunk(text) {
-            appendJobOutput(job.id, text);
-            write({ requestId: req.requestId, type: "chunk", seq: seq++, data: text });
-          },
-          onDone(totalMs) {
-            inflight.delete(req.requestId);
-            finalizeJob(job.id, "done");
-            write({ requestId: req.requestId, type: "done", exitCode: 0, totalMs });
-          },
-          onError(code, message) {
-            inflight.delete(req.requestId);
-            finalizeJob(job.id, code === "CANCELLED" ? "cancelled" : "error", message);
-            write({ requestId: req.requestId, type: "error", code, message });
-          },
-        },
-      });
-      inflight.set(req.requestId, handle);
-      return;
-    }
-
-    case "conversations.list": {
-      try {
-        const conversations = listConversations(req.payload.limit ?? 100);
-        write({ requestId: req.requestId, type: "conversations.list.result", conversations });
-      } catch (err) {
-        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
-      }
-      return;
-    }
-
-    case "conversations.create": {
-      try {
-        const conversation = createConversation(req.payload.title);
-        write({ requestId: req.requestId, type: "conversations.create.result", conversation });
-      } catch (err) {
-        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
-      }
-      return;
-    }
-
-    case "conversations.rename": {
-      try {
-        const conversation = renameConversation(req.payload.id, req.payload.title);
-        write({ requestId: req.requestId, type: "conversations.rename.result", conversation });
-      } catch (err) {
-        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
-      }
-      return;
-    }
-
-    case "conversations.delete": {
-      try {
-        const deleted = deleteConversation(req.payload.id);
-        write({ requestId: req.requestId, type: "conversations.delete.result", deleted });
-      } catch (err) {
-        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
-      }
-      return;
-    }
-
-    case "messages.list": {
-      try {
-        const messages = listMessages(req.payload.conversationId);
-        write({ requestId: req.requestId, type: "messages.list.result", messages });
-      } catch (err) {
-        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
-      }
       return;
     }
 
@@ -262,10 +172,13 @@ async function handle(req: HostRequest): Promise<void> {
     }
 
     case "provider.test": {
-      const providerName = (req.payload.provider ??
-        ((openDb(), getSetting("ai.provider")) as ProviderName | null) ??
-        "claude") as ProviderName;
-      const provider = req.payload.provider ? getProviderByName(providerName) : getActiveProvider();
+      // If a provider is specified, test that one explicitly; otherwise use whichever
+      // the user has configured as active. openDb() is idempotent and ensures the
+      // settings table exists before we read it.
+      openDb();
+      const provider = req.payload.provider
+        ? getProviderByName(req.payload.provider as ProviderName)
+        : getActiveProvider();
       const start = Date.now();
       let collected = "";
       let settled = false;
@@ -379,6 +292,10 @@ function errResp(requestId: string, code: HostErrorCode, message: string): HostR
 }
 
 function main(): void {
+  // Chrome strips PATH down to /usr/bin:/bin:/usr/sbin:/sbin — restore the
+  // usual user/tool dirs so spawn("claude") etc. work.
+  ensureRichPath();
+
   // Open the DB up-front so any init errors surface immediately into host.log.
   try {
     openDb();

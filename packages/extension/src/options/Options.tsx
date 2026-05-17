@@ -54,38 +54,40 @@ export function Options() {
   }
 
   async function loadSettings() {
-    try {
-      const [p, k, om, ou, lm] = await Promise.all([
-        readSetting("ai.provider"),
-        readSetting("ai.openai.apiKey"),
-        readSetting("ai.openai.model"),
-        readSetting("ai.ollama.url"),
-        readSetting("ai.ollama.model"),
-      ]);
-      setSettings({
-        provider: (p as ProviderName) || "claude",
-        openaiApiKey: k || "",
-        openaiModel: om || "gpt-4o-mini",
-        ollamaUrl: ou || "http://127.0.0.1:11434",
-        ollamaModel: lm || "llama3.2",
-      });
-    } catch { /* fall back to defaults */ }
+    // Promise.allSettled (not all) so individual rejections never become
+    // unhandled — a forbidden native host rejects every readSetting in parallel.
+    const results = await Promise.allSettled([
+      readSetting("ai.provider"),
+      readSetting("ai.openai.apiKey"),
+      readSetting("ai.openai.model"),
+      readSetting("ai.ollama.url"),
+      readSetting("ai.ollama.model"),
+    ]);
+    const [p, k, om, ou, lm] = results.map((r) => (r.status === "fulfilled" ? r.value : null));
+    setSettings({
+      provider: (p as ProviderName) || "claude",
+      openaiApiKey: k || "",
+      openaiModel: om || "gpt-4o-mini",
+      ollamaUrl: ou || "http://127.0.0.1:11434",
+      ollamaModel: lm || "llama3.2",
+    });
   }
 
   async function saveSettings() {
-    try {
-      await Promise.all([
-        writeSetting("ai.provider", settings.provider),
-        writeSetting("ai.openai.apiKey", settings.openaiApiKey),
-        writeSetting("ai.openai.model", settings.openaiModel),
-        writeSetting("ai.ollama.url", settings.ollamaUrl),
-        writeSetting("ai.ollama.model", settings.ollamaModel),
-      ]);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1800);
-    } catch (err) {
-      setTest({ kind: "fail", message: (err as Error).message, provider: settings.provider });
+    const results = await Promise.allSettled([
+      writeSetting("ai.provider", settings.provider),
+      writeSetting("ai.openai.apiKey", settings.openaiApiKey),
+      writeSetting("ai.openai.model", settings.openaiModel),
+      writeSetting("ai.ollama.url", settings.ollamaUrl),
+      writeSetting("ai.ollama.model", settings.ollamaModel),
+    ]);
+    const failure = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failure) {
+      setTest({ kind: "fail", message: (failure.reason as Error).message, provider: settings.provider });
+      return;
     }
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 1800);
   }
 
   async function testProvider() {

@@ -198,7 +198,6 @@ export function App() {
             setNotes((prev) => prev.filter((n) => n.id !== activeNote.id));
             setView({ kind: "list" });
           }}
-          onFoldersChanged={() => void refreshFolders()}
         />
       ) : (
         // The selected note got removed under us; bounce back.

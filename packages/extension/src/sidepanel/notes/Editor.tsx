@@ -4,7 +4,7 @@ import { is, request } from "../../lib/rpc";
 import { Icon } from "../../lib/Icons";
 import { AiActionBar } from "./AiActionBar";
 import { TagsInput } from "./TagsInput";
-import { MarkdownEditor } from "./MarkdownEditor";
+import { RichEditor, type RichEditorHandle } from "./RichEditor";
 
 interface Props {
   note: NoteRow;
@@ -12,28 +12,34 @@ interface Props {
   onBack: () => void;
   onSaved: (n: NoteRow) => void;
   onDeleted: () => void;
-  onFoldersChanged: () => void;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
 
-export function Editor({ note, folders, onBack, onSaved, onDeleted, onFoldersChanged }: Props) {
+export function Editor({ note, folders, onBack, onSaved, onDeleted }: Props) {
   const [title, setTitle] = useState(note.title);
-  const [body, setBody] = useState(note.contentMd);
   const [tags, setTags] = useState<string[]>(note.tags);
   const [folderId, setFolderId] = useState<string | null>(note.folderId);
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const bodyRef = useRef(note.contentMd);
   const dirtyRef = useRef(false);
   const debouncer = useRef<number | null>(null);
+  const editorRef = useRef<RichEditorHandle>(null);
 
+  // Only re-sync local state when the user switches to a *different* note.
+  // Re-syncing on every field would clobber in-flight typing whenever our own
+  // save() round-trip resolves (the parent re-renders us with a fresh note
+  // object — same values, but `tags` is a new array reference, which is
+  // enough to refire a field-dep effect).
   useEffect(() => {
     setTitle(note.title);
-    setBody(note.contentMd);
     setTags(note.tags);
     setFolderId(note.folderId);
+    bodyRef.current = note.contentMd;
     dirtyRef.current = false;
-  }, [note.id, note.title, note.contentMd, note.tags, note.folderId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]);
 
   function scheduleSave() {
     dirtyRef.current = true;
@@ -48,7 +54,7 @@ export function Editor({ note, folders, onBack, onSaved, onDeleted, onFoldersCha
       const updated: NoteRow = {
         ...note,
         title: title.trim() || "Untitled",
-        contentMd: body,
+        contentMd: bodyRef.current,
         tags,
         folderId,
         updatedAt: Date.now(),
@@ -70,9 +76,15 @@ export function Editor({ note, folders, onBack, onSaved, onDeleted, onFoldersCha
     onDeleted();
   }
 
-  function appendAiOutput(text: string) {
-    setBody((prev) => prev + text);
+  function applyAiOutput(text: string, mode: "append" | "replace") {
+    if (mode === "replace") {
+      editorRef.current?.setMarkdown(text);
+    } else {
+      editorRef.current?.appendMarkdown(text);
+    }
+    bodyRef.current = editorRef.current?.getMarkdown() ?? bodyRef.current;
     dirtyRef.current = true;
+    void save();
   }
 
   return (
@@ -119,16 +131,16 @@ export function Editor({ note, folders, onBack, onSaved, onDeleted, onFoldersCha
         onChange={(t) => { setTags(t); scheduleSave(); }}
       />
 
-      <MarkdownEditor
-        value={body}
-        onChange={(v) => { setBody(v); scheduleSave(); }}
+      <RichEditor
+        ref={editorRef}
+        initialMarkdown={note.contentMd}
+        onChange={(md) => { bodyRef.current = md; scheduleSave(); }}
       />
 
       <footer className="editor-footer">
         <AiActionBar
-          noteBody={body}
-          onChunk={appendAiOutput}
-          onDone={() => void save()}
+          noteBody={bodyRef.current}
+          onApply={applyAiOutput}
           onAutoMetadata={(meta) => {
             if (meta.title) setTitle(meta.title);
             if (meta.tags) setTags(meta.tags);
@@ -137,8 +149,6 @@ export function Editor({ note, folders, onBack, onSaved, onDeleted, onFoldersCha
           }}
         />
       </footer>
-      {/* onFoldersChanged unused inside the editor today but threaded for the menu's eventual "New folder" item */}
-      <span style={{ display: "none" }}>{void onFoldersChanged}</span>
     </div>
   );
 }

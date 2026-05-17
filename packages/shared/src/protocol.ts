@@ -69,51 +69,6 @@ export interface NotesSearchPayload {
   limit?: number;
 }
 
-// --- Conversations (chat) ---
-
-export type ChatRole = "user" | "assistant" | "system";
-
-export interface ConversationRow {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messageCount: number;
-}
-
-export interface MessageRow {
-  id: string;
-  conversationId: string;
-  role: ChatRole;
-  content: string;
-  createdAt: number;
-}
-
-export interface ConversationsListPayload {
-  limit?: number;
-}
-export interface ConversationsCreatePayload {
-  title?: string;
-}
-export interface ConversationsRenamePayload {
-  id: string;
-  title: string;
-}
-export interface ConversationsDeletePayload {
-  id: string;
-}
-export interface MessagesListPayload {
-  conversationId: string;
-}
-export interface ChatInvokePayload {
-  conversationId: string;
-  /** Plain-text user message. Native host rebuilds the full prompt from history + this. */
-  userMessage: string;
-  /** Optional: notes whose contentMd should be inlined as context before the conversation. */
-  attachNoteIds?: string[];
-  timeoutMs?: number;
-}
-
 // --- Folders ---
 
 export interface FolderRow {
@@ -156,12 +111,6 @@ export type HostRequest =
   | { requestId: string; type: "notes.upsert"; payload: NotesUpsertPayload }
   | { requestId: string; type: "notes.delete"; payload: NotesDeletePayload }
   | { requestId: string; type: "notes.search"; payload: NotesSearchPayload }
-  | { requestId: string; type: "conversations.list"; payload: ConversationsListPayload }
-  | { requestId: string; type: "conversations.create"; payload: ConversationsCreatePayload }
-  | { requestId: string; type: "conversations.rename"; payload: ConversationsRenamePayload }
-  | { requestId: string; type: "conversations.delete"; payload: ConversationsDeletePayload }
-  | { requestId: string; type: "messages.list"; payload: MessagesListPayload }
-  | { requestId: string; type: "chat.invoke"; payload: ChatInvokePayload }
   | { requestId: string; type: "ai-jobs.list"; payload: AiJobsListPayload }
   | { requestId: string; type: "folders.list"; payload: FoldersListPayload }
   | { requestId: string; type: "folders.create"; payload: FoldersCreatePayload }
@@ -203,11 +152,6 @@ export type HostResponse =
   | { requestId: string; type: "notes.upsert.result"; note: NoteRow }
   | { requestId: string; type: "notes.delete.result"; deleted: boolean }
   | { requestId: string; type: "notes.search.result"; notes: NoteRow[] }
-  | { requestId: string; type: "conversations.list.result"; conversations: ConversationRow[] }
-  | { requestId: string; type: "conversations.create.result"; conversation: ConversationRow }
-  | { requestId: string; type: "conversations.rename.result"; conversation: ConversationRow }
-  | { requestId: string; type: "conversations.delete.result"; deleted: boolean }
-  | { requestId: string; type: "messages.list.result"; messages: MessageRow[] }
   | { requestId: string; type: "ai-jobs.list.result"; jobs: AiJobRow[] }
   | { requestId: string; type: "folders.list.result"; folders: FolderRow[] }
   | { requestId: string; type: "folders.create.result"; folder: FolderRow }
@@ -228,7 +172,6 @@ export type HostResponse =
 export interface AiJobRow {
   id: string;
   noteId: string | null;
-  conversationId: string | null;
   mode: string;
   status: "queued" | "running" | "done" | "error" | "cancelled";
   promptPreview: string;

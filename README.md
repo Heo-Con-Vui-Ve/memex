@@ -12,7 +12,7 @@ An AI-augmented second-brain Chrome extension. Lives in the side panel. Backed b
 Three pnpm workspace packages:
 
 - `@memex/shared` — wire protocol + domain types shared by both ends
-- `@memex/host` — Node.js Chrome Native Messaging host that spawns the `claude` CLI, owns the SQLite DB, and exposes notes/folders/conversations + AI streaming RPCs
+- `@memex/host` — Node.js Chrome Native Messaging host that spawns the `claude` CLI, owns the SQLite DB, and exposes notes/folders + AI streaming RPCs
 - `@memex/extension` — React + Vite + Manifest V3 Chrome extension (side panel notes browser, CodeMirror editor, AI action bar, settings)
 
 ## Prerequisites

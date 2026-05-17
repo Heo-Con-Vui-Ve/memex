@@ -26,7 +26,6 @@ export function runClaude(payload: InvokePayload, cb: RunCallbacks): RunHandle {
   const controller = new AbortController();
   const timeoutMs = payload.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let timedOut = false;
-  let userCancelled = false;
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
@@ -53,6 +52,8 @@ export function runClaude(payload: InvokePayload, cb: RunCallbacks): RunHandle {
     },
     onError: (code, message, details) => {
       if (settle()) return;
+      // A timeout fires by aborting the controller, which the provider then
+      // surfaces as CANCELLED — rewrite back to TIMEOUT for the UI.
       const finalCode: HostErrorCode = code === "CANCELLED" && timedOut ? "TIMEOUT" : code;
       cb.onError(finalCode, message, details);
     },
@@ -60,9 +61,7 @@ export function runClaude(payload: InvokePayload, cb: RunCallbacks): RunHandle {
 
   return {
     cancel() {
-      userCancelled = true;
       controller.abort();
-      void userCancelled; // mark intentional for future use
     },
   };
 }
