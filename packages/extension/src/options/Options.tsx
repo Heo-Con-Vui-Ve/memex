@@ -5,8 +5,34 @@ import type { HostResponse } from "@notepad-ai/shared";
 type Pong = Extract<HostResponse, { type: "pong" }>;
 type Status = { kind: "checking" } | { kind: "ok"; pong: Pong } | { kind: "fail"; message: string };
 
+type ProviderName = "claude" | "openai" | "ollama";
+
+interface ProviderSettings {
+  provider: ProviderName;
+  openaiApiKey: string;
+  openaiModel: string;
+  ollamaUrl: string;
+  ollamaModel: string;
+}
+
+async function readSetting(key: string): Promise<string | null> {
+  const r = await request({ type: "settings.get", payload: { key } }, is.settingGet);
+  return r.value;
+}
+async function writeSetting(key: string, value: string): Promise<void> {
+  await request({ type: "settings.set", payload: { key, value } }, is.settingSet);
+}
+
 export function Options() {
   const [status, setStatus] = useState<Status>({ kind: "checking" });
+  const [settings, setSettings] = useState<ProviderSettings>({
+    provider: "claude",
+    openaiApiKey: "",
+    openaiModel: "gpt-4o-mini",
+    ollamaUrl: "http://127.0.0.1:11434",
+    ollamaModel: "llama3.2",
+  });
+  const [savedFlash, setSavedFlash] = useState(false);
 
   async function check() {
     setStatus({ kind: "checking" });
@@ -18,8 +44,40 @@ export function Options() {
     }
   }
 
+  async function loadSettings() {
+    try {
+      const [p, k, om, ou, lm] = await Promise.all([
+        readSetting("ai.provider"),
+        readSetting("ai.openai.apiKey"),
+        readSetting("ai.openai.model"),
+        readSetting("ai.ollama.url"),
+        readSetting("ai.ollama.model"),
+      ]);
+      setSettings({
+        provider: (p as ProviderName) || "claude",
+        openaiApiKey: k || "",
+        openaiModel: om || "gpt-4o-mini",
+        ollamaUrl: ou || "http://127.0.0.1:11434",
+        ollamaModel: lm || "llama3.2",
+      });
+    } catch { /* fall back to defaults */ }
+  }
+
+  async function saveSettings() {
+    await Promise.all([
+      writeSetting("ai.provider", settings.provider),
+      writeSetting("ai.openai.apiKey", settings.openaiApiKey),
+      writeSetting("ai.openai.model", settings.openaiModel),
+      writeSetting("ai.ollama.url", settings.ollamaUrl),
+      writeSetting("ai.ollama.model", settings.ollamaModel),
+    ]);
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 1800);
+  }
+
   useEffect(() => {
     void check();
+    void loadSettings();
   }, []);
 
   return (
@@ -36,9 +94,10 @@ export function Options() {
           <div className="bad">
             <p><strong>Host unreachable.</strong> {status.message}</p>
             <pre>{`# Register the host (run once):
+cd /Users/trantan/Dev/Personal/notepad-ai
 pnpm host:install -- --extension-id ${chrome.runtime.id}
 
-Then restart Chrome.`}</pre>
+# then Cmd+Q quit Chrome and reopen.`}</pre>
           </div>
         )}
         {status.kind === "ok" && (
@@ -58,10 +117,82 @@ Then restart Chrome.`}</pre>
       </section>
 
       <section className="card">
+        <header>
+          <h2>AI provider</h2>
+          <button className="primary" onClick={() => void saveSettings()}>
+            {savedFlash ? "Saved ✓" : "Save"}
+          </button>
+        </header>
+        <div className="form-grid">
+          <label>
+            <span>Provider</span>
+            <select
+              value={settings.provider}
+              onChange={(e) => setSettings({ ...settings, provider: e.target.value as ProviderName })}
+            >
+              <option value="claude">Claude CLI (local)</option>
+              <option value="openai">OpenAI API</option>
+              <option value="ollama">Ollama (local)</option>
+            </select>
+          </label>
+
+          {settings.provider === "openai" && (
+            <>
+              <label>
+                <span>OpenAI API key</span>
+                <input
+                  type="password"
+                  placeholder="sk-…"
+                  value={settings.openaiApiKey}
+                  onChange={(e) => setSettings({ ...settings, openaiApiKey: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>Model</span>
+                <input
+                  value={settings.openaiModel}
+                  onChange={(e) => setSettings({ ...settings, openaiModel: e.target.value })}
+                  placeholder="gpt-4o-mini"
+                />
+              </label>
+            </>
+          )}
+
+          {settings.provider === "ollama" && (
+            <>
+              <label>
+                <span>Ollama URL</span>
+                <input
+                  value={settings.ollamaUrl}
+                  onChange={(e) => setSettings({ ...settings, ollamaUrl: e.target.value })}
+                  placeholder="http://127.0.0.1:11434"
+                />
+              </label>
+              <label>
+                <span>Model</span>
+                <input
+                  value={settings.ollamaModel}
+                  onChange={(e) => setSettings({ ...settings, ollamaModel: e.target.value })}
+                  placeholder="llama3.2"
+                />
+              </label>
+            </>
+          )}
+
+          {settings.provider === "claude" && (
+            <p className="muted">
+              Uses your local <code>claude</code> CLI auth. No API key needed.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="card">
         <h2>About</h2>
         <p>
-          notepad-ai stores all notes locally in SQLite via the native host.
-          The Claude CLI on your machine handles all AI processing — no API keys, no external calls.
+          notepad-ai stores all notes locally in SQLite via the native host. The
+          chosen AI provider runs on your machine (Claude CLI / Ollama) or against
+          your own API key (OpenAI) — there is no notepad-ai backend.
         </p>
       </section>
     </div>

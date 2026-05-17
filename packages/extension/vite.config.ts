@@ -9,6 +9,7 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     sourcemap: true,
+    chunkSizeWarningLimit: 700, // ~520KB sidepanel chunk is CodeMirror; expected
   },
   server: {
     port: 5173,

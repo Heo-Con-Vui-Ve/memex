@@ -1,26 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import type { FolderRow, NoteRow } from "@notepad-ai/shared";
 import { is, request } from "../../lib/rpc";
+import { Icon } from "../../lib/Icons";
 import { AiActionBar } from "./AiActionBar";
 import { TagsInput } from "./TagsInput";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { Icon } from "../../lib/Icons";
 
 interface Props {
   note: NoteRow;
   folders: FolderRow[];
+  onBack: () => void;
   onSaved: (n: NoteRow) => void;
   onDeleted: () => void;
+  onFoldersChanged: () => void;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
 
-export function Editor({ note, folders, onSaved, onDeleted }: Props) {
+export function Editor({ note, folders, onBack, onSaved, onDeleted, onFoldersChanged }: Props) {
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.contentMd);
   const [tags, setTags] = useState<string[]>(note.tags);
   const [folderId, setFolderId] = useState<string | null>(note.folderId);
   const [saving, setSaving] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const dirtyRef = useRef(false);
   const debouncer = useRef<number | null>(null);
 
@@ -56,8 +59,6 @@ export function Editor({ note, folders, onSaved, onDeleted }: Props) {
       );
       dirtyRef.current = false;
       onSaved(res.note);
-    } catch (err) {
-      console.error("save failed", err);
     } finally {
       setSaving(false);
     }
@@ -74,55 +75,60 @@ export function Editor({ note, folders, onSaved, onDeleted }: Props) {
     dirtyRef.current = true;
   }
 
-  function finalizeAiOutput() {
-    void save();
-  }
-
   return (
     <div className="editor">
+      <header className="editor-top">
+        <button className="ghost icon-only" onClick={() => { void save(); onBack(); }} title="Back">
+          ← <span className="sr-only">Back</span>
+        </button>
+        <div className="editor-status-inline">{saving ? "Saving…" : dirtyRef.current ? "Edited" : "Saved"}</div>
+        <div className="folder-pop">
+          <button className="ghost icon-only" onClick={() => setMenuOpen((o) => !o)} title="More">⋯</button>
+          {menuOpen && (
+            <>
+              <div className="pop-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="pop pop-right">
+                <div className="pop-section-label">Move to folder</div>
+                <button className={"pop-item" + (folderId === null ? " is-active" : "")} onClick={() => { setFolderId(null); scheduleSave(); setMenuOpen(false); }}>
+                  Unsorted
+                </button>
+                {folders.map((f) => (
+                  <button key={f.id} className={"pop-item" + (folderId === f.id ? " is-active" : "")} onClick={() => { setFolderId(f.id); scheduleSave(); setMenuOpen(false); }}>
+                    <Icon.Folder size={12} /> {f.name}
+                  </button>
+                ))}
+                <div className="pop-sep" />
+                <button className="pop-item danger" onClick={() => { setMenuOpen(false); void del(); }}>
+                  <Icon.Trash size={13} /> Delete note
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </header>
+
       <input
         className="editor-title"
         value={title}
-        onChange={(e) => {
-          setTitle(e.target.value);
-          scheduleSave();
-        }}
+        onChange={(e) => { setTitle(e.target.value); scheduleSave(); }}
         placeholder="Untitled"
       />
-      <div className="editor-meta">
-        <select
-          value={folderId ?? ""}
-          onChange={(e) => {
-            setFolderId(e.target.value || null);
-            scheduleSave();
-          }}
-          className="folder-select"
-        >
-          <option value="">Unsorted</option>
-          {folders.map((f) => (
-            <option key={f.id} value={f.id}>{f.name}</option>
-          ))}
-        </select>
-        <TagsInput
-          tags={tags}
-          onChange={(t) => {
-            setTags(t);
-            scheduleSave();
-          }}
-        />
-      </div>
+
+      <TagsInput
+        tags={tags}
+        onChange={(t) => { setTags(t); scheduleSave(); }}
+      />
+
       <MarkdownEditor
         value={body}
-        onChange={(v) => {
-          setBody(v);
-          scheduleSave();
-        }}
+        onChange={(v) => { setBody(v); scheduleSave(); }}
       />
+
       <footer className="editor-footer">
         <AiActionBar
           noteBody={body}
           onChunk={appendAiOutput}
-          onDone={finalizeAiOutput}
+          onDone={() => void save()}
           onAutoMetadata={(meta) => {
             if (meta.title) setTitle(meta.title);
             if (meta.tags) setTags(meta.tags);
@@ -130,13 +136,9 @@ export function Editor({ note, folders, onSaved, onDeleted }: Props) {
             void save();
           }}
         />
-        <div className="editor-status">
-          <span>{saving ? "Saving…" : "All changes saved"}</span>
-          <button className="ghost danger" onClick={() => void del()}>
-            <Icon.Trash size={13} /> Delete
-          </button>
-        </div>
       </footer>
+      {/* onFoldersChanged unused inside the editor today but threaded for the menu's eventual "New folder" item */}
+      <span style={{ display: "none" }}>{void onFoldersChanged}</span>
     </div>
   );
 }

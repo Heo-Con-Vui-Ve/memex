@@ -1,15 +1,25 @@
 import { defineManifest } from "@crxjs/vite-plugin";
-import { HOST_NAME } from "@notepad-ai/shared";
 
 export default defineManifest({
   manifest_version: 3,
   name: "notepad-ai",
   version: "0.1.0",
-  description: "AI-powered second brain backed by your local Claude CLI",
-  minimum_chrome_version: "114",
+  description: "AI-powered second-brain notes backed by your local Claude CLI",
+  minimum_chrome_version: "116",
+  icons: {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png",
+  },
   action: {
-    default_title: "notepad-ai · quick capture",
-    default_popup: "src/popup/index.html",
+    default_title: "notepad-ai · open side panel",
+    default_icon: {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png",
+    },
   },
   side_panel: {
     default_path: "src/sidepanel/index.html",
@@ -31,10 +41,4 @@ export default defineManifest({
   ],
   permissions: ["nativeMessaging", "sidePanel", "storage", "activeTab", "scripting"],
   host_permissions: ["<all_urls>"],
-  // Match the host name we registered in the native messaging manifest.
-  // (Documentation hint — Chrome looks this up from the host manifest, not from here.)
-  // Host name in use: see HOST_NAME = "${HOST_NAME}" in @notepad-ai/shared.
-  // (Including the import above forces a typecheck on the symbol.)
 });
-
-void HOST_NAME;

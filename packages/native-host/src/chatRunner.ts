@@ -4,9 +4,8 @@ import { appendMessage, getNote, listMessages } from "./db.js";
 
 /**
  * A "chat" turn: rebuild the conversation prompt from history + the new user
- * message, optionally inline note context, send to claude, stream back, and
- * persist both the user message (already done before this is called) and the
- * final assistant reply when streaming completes.
+ * message, optionally inline note context, send through the active provider,
+ * stream back, and persist the final assistant reply on success.
  */
 export function runChat(args: {
   conversationId: string;
@@ -27,30 +26,22 @@ export function runChat(args: {
     return { cancel() {} };
   }
 
-  // Persist the user message immediately so it shows up even if claude errors.
-  let appended = false;
   try {
     appendMessage({
       conversationId: args.conversationId,
       role: "user",
       content: args.userMessage,
     });
-    appended = true;
   } catch (err) {
     args.cb.onError("INTERNAL", `Failed to persist user message: ${(err as Error).message}`);
     return { cancel() {} };
   }
 
-  // Build context block from attached notes (if any).
   const contextBlocks: string[] = [];
   if (args.attachNoteIds?.length) {
     for (const id of args.attachNoteIds) {
       const note = getNote(id);
-      if (note) {
-        contextBlocks.push(
-          `### Note: ${note.title}\n\n${note.contentMd}`,
-        );
-      }
+      if (note) contextBlocks.push(`### Note: ${note.title}\n\n${note.contentMd}`);
     }
   }
 
@@ -74,12 +65,10 @@ export function runChat(args: {
   ].join("");
 
   let buffered = "";
-  let voidAppended = appended; // silence unused-var lint if we don't reach finalize
-  void voidAppended;
 
   return runClaude(
     {
-      mode: "summarize", // claudeRunner doesn't use mode for shaping; chat is just a prompt
+      mode: "summarize",
       prompt,
       timeoutMs: args.timeoutMs,
     },
@@ -96,9 +85,7 @@ export function runChat(args: {
               role: "assistant",
               content: buffered,
             });
-          } catch {
-            // best-effort
-          }
+          } catch { /* best-effort */ }
         }
         args.cb.onDone(totalMs);
       },

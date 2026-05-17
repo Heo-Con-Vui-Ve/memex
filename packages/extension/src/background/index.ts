@@ -72,10 +72,9 @@ chrome.runtime.onConnect.addListener((uiPort) => {
   });
 });
 
-// Open the side panel when the user clicks the toolbar action (also triggers the popup,
-// which is fine — popup is for capture, side panel is for browse).
+// Clicking the toolbar icon opens the side panel (only surface — no popup).
 chrome.sidePanel
-  ?.setPanelBehavior({ openPanelOnActionClick: false })
+  ?.setPanelBehavior({ openPanelOnActionClick: true })
   .catch(() => {});
 
 chrome.runtime.onInstalled.addListener(() => {
