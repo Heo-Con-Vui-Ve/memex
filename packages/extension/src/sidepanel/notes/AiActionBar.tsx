@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { MODE_SPECS, MVP_ENABLED_MODES } from "@notepad-ai/shared";
 import type { AiMode } from "@notepad-ai/shared";
-import { stream } from "../lib/rpc";
+import { stream } from "../../lib/rpc";
 
 interface Props {
   noteBody: string;

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { NoteRow } from "@notepad-ai/shared";
-import { is, request } from "../lib/rpc";
+import { is, request } from "../../lib/rpc";
 import { AiActionBar } from "./AiActionBar";
-
-// MVP shortcut: plain <textarea>. Phase 1 follow-up swaps in CodeMirror 6
-// + @codemirror/lang-markdown (see plan task F7).
+import { TagsInput } from "./TagsInput";
+import { MarkdownEditor } from "./MarkdownEditor";
 
 interface Props {
   note: NoteRow;
@@ -17,6 +16,7 @@ const SAVE_DEBOUNCE_MS = 600;
 export function Editor({ note, onSaved, onDeleted }: Props) {
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.contentMd);
+  const [tags, setTags] = useState<string[]>(note.tags);
   const [saving, setSaving] = useState(false);
   const dirtyRef = useRef(false);
   const debouncer = useRef<number | null>(null);
@@ -24,8 +24,9 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
   useEffect(() => {
     setTitle(note.title);
     setBody(note.contentMd);
+    setTags(note.tags);
     dirtyRef.current = false;
-  }, [note.id, note.title, note.contentMd]);
+  }, [note.id, note.title, note.contentMd, note.tags]);
 
   function scheduleSave() {
     dirtyRef.current = true;
@@ -41,6 +42,7 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
         ...note,
         title: title.trim() || "Untitled",
         contentMd: body,
+        tags,
         updatedAt: Date.now(),
       };
       const res = await request(
@@ -82,15 +84,19 @@ export function Editor({ note, onSaved, onDeleted }: Props) {
         }}
         placeholder="Untitled"
       />
-      <textarea
-        className="editor-body"
-        value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
+      <TagsInput
+        tags={tags}
+        onChange={(t) => {
+          setTags(t);
           scheduleSave();
         }}
-        placeholder="Start typing…"
-        spellCheck={false}
+      />
+      <MarkdownEditor
+        value={body}
+        onChange={(v) => {
+          setBody(v);
+          scheduleSave();
+        }}
       />
       <footer className="editor-footer">
         <AiActionBar

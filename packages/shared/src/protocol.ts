@@ -67,6 +67,58 @@ export interface NotesSearchPayload {
   limit?: number;
 }
 
+// --- Conversations (chat) ---
+
+export type ChatRole = "user" | "assistant" | "system";
+
+export interface ConversationRow {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+}
+
+export interface MessageRow {
+  id: string;
+  conversationId: string;
+  role: ChatRole;
+  content: string;
+  createdAt: number;
+}
+
+export interface ConversationsListPayload {
+  limit?: number;
+}
+export interface ConversationsCreatePayload {
+  title?: string;
+}
+export interface ConversationsRenamePayload {
+  id: string;
+  title: string;
+}
+export interface ConversationsDeletePayload {
+  id: string;
+}
+export interface MessagesListPayload {
+  conversationId: string;
+}
+export interface ChatInvokePayload {
+  conversationId: string;
+  /** Plain-text user message. Native host rebuilds the full prompt from history + this. */
+  userMessage: string;
+  /** Optional: notes whose contentMd should be inlined as context before the conversation. */
+  attachNoteIds?: string[];
+  timeoutMs?: number;
+}
+
+// --- AI jobs (persistent) ---
+
+export interface AiJobsListPayload {
+  limit?: number;
+  status?: "queued" | "running" | "done" | "error" | "cancelled";
+}
+
 export type HostRequest =
   | { requestId: string; type: "claude.invoke"; payload: InvokePayload }
   | { requestId: string; type: "claude.cancel"; payload: CancelPayload }
@@ -75,7 +127,14 @@ export type HostRequest =
   | { requestId: string; type: "notes.get"; payload: NotesGetPayload }
   | { requestId: string; type: "notes.upsert"; payload: NotesUpsertPayload }
   | { requestId: string; type: "notes.delete"; payload: NotesDeletePayload }
-  | { requestId: string; type: "notes.search"; payload: NotesSearchPayload };
+  | { requestId: string; type: "notes.search"; payload: NotesSearchPayload }
+  | { requestId: string; type: "conversations.list"; payload: ConversationsListPayload }
+  | { requestId: string; type: "conversations.create"; payload: ConversationsCreatePayload }
+  | { requestId: string; type: "conversations.rename"; payload: ConversationsRenamePayload }
+  | { requestId: string; type: "conversations.delete"; payload: ConversationsDeletePayload }
+  | { requestId: string; type: "messages.list"; payload: MessagesListPayload }
+  | { requestId: string; type: "chat.invoke"; payload: ChatInvokePayload }
+  | { requestId: string; type: "ai-jobs.list"; payload: AiJobsListPayload };
 
 export type HostErrorCode =
   | "CLI_NOT_FOUND"
@@ -108,7 +167,26 @@ export type HostResponse =
   | { requestId: string; type: "notes.get.result"; note: NoteRow | null }
   | { requestId: string; type: "notes.upsert.result"; note: NoteRow }
   | { requestId: string; type: "notes.delete.result"; deleted: boolean }
-  | { requestId: string; type: "notes.search.result"; notes: NoteRow[] };
+  | { requestId: string; type: "notes.search.result"; notes: NoteRow[] }
+  | { requestId: string; type: "conversations.list.result"; conversations: ConversationRow[] }
+  | { requestId: string; type: "conversations.create.result"; conversation: ConversationRow }
+  | { requestId: string; type: "conversations.rename.result"; conversation: ConversationRow }
+  | { requestId: string; type: "conversations.delete.result"; deleted: boolean }
+  | { requestId: string; type: "messages.list.result"; messages: MessageRow[] }
+  | { requestId: string; type: "ai-jobs.list.result"; jobs: AiJobRow[] };
+
+export interface AiJobRow {
+  id: string;
+  noteId: string | null;
+  conversationId: string | null;
+  mode: string;
+  status: "queued" | "running" | "done" | "error" | "cancelled";
+  promptPreview: string;
+  output: string;
+  errorMessage: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
 
 export const MAX_NATIVE_MESSAGE_BYTES = 1024 * 1024; // 1MB Chrome cap
 export const MAX_CHUNK_BYTES = 256 * 1024; // host-side safety cap

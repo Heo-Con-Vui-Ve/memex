@@ -2,9 +2,28 @@ import { createRequire } from "node:module";
 import type { HostRequest, HostResponse } from "@notepad-ai/shared";
 import { MessageFramer, encodeMessage } from "./framing.js";
 import { runClaude, detectClaude, type RunHandle } from "./claudeRunner.js";
+void appendMessage;
 import { log } from "./logger.js";
 import { getDbPath } from "./paths.js";
-import { openDb, listNotes, getNote, upsertNote, deleteNote, searchNotes } from "./db.js";
+import {
+  openDb,
+  listNotes,
+  getNote,
+  upsertNote,
+  deleteNote,
+  searchNotes,
+  listConversations,
+  createConversation,
+  renameConversation,
+  deleteConversation,
+  listMessages,
+  appendMessage,
+  startAiJob,
+  appendJobOutput,
+  finalizeJob,
+  listAiJobs,
+} from "./db.js";
+import { runChat } from "./chatRunner.js";
 import type { HostErrorCode } from "@notepad-ai/shared";
 
 const require = createRequire(import.meta.url);
@@ -38,20 +57,121 @@ async function handle(req: HostRequest): Promise<void> {
 
     case "claude.invoke": {
       let seq = 0;
+      const job = startAiJob({
+        noteId: null,
+        mode: req.payload.mode,
+        promptPreview: req.payload.prompt,
+      });
       const handle = runClaude(req.payload, {
         onChunk(text) {
+          appendJobOutput(job.id, text);
           write({ requestId: req.requestId, type: "chunk", seq: seq++, data: text });
         },
         onDone(exitCode, totalMs) {
           inflight.delete(req.requestId);
+          finalizeJob(job.id, "done");
           write({ requestId: req.requestId, type: "done", exitCode, totalMs });
         },
         onError(code, message, details) {
           inflight.delete(req.requestId);
+          finalizeJob(job.id, code === "CANCELLED" ? "cancelled" : "error", message);
           write({ requestId: req.requestId, type: "error", code, message, details });
         },
       });
       inflight.set(req.requestId, handle);
+      return;
+    }
+
+    case "chat.invoke": {
+      let seq = 0;
+      const job = startAiJob({
+        conversationId: req.payload.conversationId,
+        mode: "chat",
+        promptPreview: req.payload.userMessage,
+      });
+      const handle = runChat({
+        conversationId: req.payload.conversationId,
+        userMessage: req.payload.userMessage,
+        attachNoteIds: req.payload.attachNoteIds,
+        timeoutMs: req.payload.timeoutMs,
+        cb: {
+          onChunk(text) {
+            appendJobOutput(job.id, text);
+            write({ requestId: req.requestId, type: "chunk", seq: seq++, data: text });
+          },
+          onDone(totalMs) {
+            inflight.delete(req.requestId);
+            finalizeJob(job.id, "done");
+            write({ requestId: req.requestId, type: "done", exitCode: 0, totalMs });
+          },
+          onError(code, message) {
+            inflight.delete(req.requestId);
+            finalizeJob(job.id, code === "CANCELLED" ? "cancelled" : "error", message);
+            write({ requestId: req.requestId, type: "error", code, message });
+          },
+        },
+      });
+      inflight.set(req.requestId, handle);
+      return;
+    }
+
+    case "conversations.list": {
+      try {
+        const conversations = listConversations(req.payload.limit ?? 100);
+        write({ requestId: req.requestId, type: "conversations.list.result", conversations });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "conversations.create": {
+      try {
+        const conversation = createConversation(req.payload.title);
+        write({ requestId: req.requestId, type: "conversations.create.result", conversation });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "conversations.rename": {
+      try {
+        const conversation = renameConversation(req.payload.id, req.payload.title);
+        write({ requestId: req.requestId, type: "conversations.rename.result", conversation });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "conversations.delete": {
+      try {
+        const deleted = deleteConversation(req.payload.id);
+        write({ requestId: req.requestId, type: "conversations.delete.result", deleted });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "messages.list": {
+      try {
+        const messages = listMessages(req.payload.conversationId);
+        write({ requestId: req.requestId, type: "messages.list.result", messages });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "ai-jobs.list": {
+      try {
+        const jobs = listAiJobs(req.payload.limit ?? 50, req.payload.status);
+        write({ requestId: req.requestId, type: "ai-jobs.list.result", jobs });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
       return;
     }
 

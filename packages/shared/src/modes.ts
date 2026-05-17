@@ -48,5 +48,11 @@ export const MODE_SPECS: Record<AiMode, ModeSpec> = {
   },
 };
 
-/** MVP only wires "summarize"; the rest are stubbed for Phase 2. */
-export const MVP_ENABLED_MODES: AiMode[] = ["summarize"];
+export const MVP_ENABLED_MODES: AiMode[] = [
+  "summarize",
+  "organize",
+  "improve",
+  "extract-tasks",
+  "brainstorm",
+  "research",
+];
