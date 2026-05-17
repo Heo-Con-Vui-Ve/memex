@@ -122,7 +122,7 @@ export function Options() {
           <div className="bad">
             <p><strong>Host unreachable.</strong> {status.message}</p>
             <pre>{`# Register the host (run once):
-cd /Users/trantan/Dev/Personal/notepad-ai
+cd /Users/trantan/Dev/Personal/memex
 pnpm host:install --extension-id ${chrome.runtime.id}
 
 # then Cmd+Q quit Chrome and reopen.`}</pre>

@@ -88,67 +88,75 @@ export function App() {
   }
 
   async function captureSelection() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-    let cap: { text: string; url: string; title: string };
     try {
-      cap = (await chrome.tabs.sendMessage(tab.id, { type: "capture-selection" })) as typeof cap;
-    } catch {
-      cap = { text: "", url: tab.url ?? "", title: tab.title ?? "" };
-    }
-    if (!cap.text.trim()) {
-      setError("No text selected on the current page.");
-      return;
-    }
-    const created = newNote({
-      contentMd: cap.text,
-      sourceUrl: cap.url,
-      sourceTitle: cap.title,
-    });
-    const r = await request(
-      {
-        type: "notes.upsert",
-        payload: {
-          note: { ...created, sourceUrl: created.sourceUrl ?? null, sourceTitle: created.sourceTitle ?? null },
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) return;
+      let cap: { text: string; url: string; title: string };
+      try {
+        cap = (await chrome.tabs.sendMessage(tab.id, { type: "capture-selection" })) as typeof cap;
+      } catch {
+        cap = { text: "", url: tab.url ?? "", title: tab.title ?? "" };
+      }
+      if (!cap.text.trim()) {
+        setError("No text selected on the current page.");
+        return;
+      }
+      const created = newNote({
+        contentMd: cap.text,
+        sourceUrl: cap.url,
+        sourceTitle: cap.title,
+      });
+      const r = await request(
+        {
+          type: "notes.upsert",
+          payload: {
+            note: { ...created, sourceUrl: created.sourceUrl ?? null, sourceTitle: created.sourceTitle ?? null },
+          },
         },
-      },
-      is.upsertResult,
-    );
-    await refresh();
-    setView({ kind: "editor", noteId: r.note.id });
+        is.upsertResult,
+      );
+      await refresh();
+      setView({ kind: "editor", noteId: r.note.id });
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   async function captureWholePage() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-    let cap: { text: string; url: string; title: string };
     try {
-      cap = (await chrome.tabs.sendMessage(tab.id, { type: "capture-page" })) as typeof cap;
-    } catch {
-      setError("Couldn't read this page (try refreshing it).");
-      return;
-    }
-    if (!cap.text.trim()) {
-      setError("Page has no readable text.");
-      return;
-    }
-    const created = newNote({
-      contentMd: cap.text,
-      title: cap.title || undefined,
-      sourceUrl: cap.url,
-      sourceTitle: cap.title,
-    });
-    const r = await request(
-      {
-        type: "notes.upsert",
-        payload: {
-          note: { ...created, sourceUrl: created.sourceUrl ?? null, sourceTitle: created.sourceTitle ?? null },
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) return;
+      let cap: { text: string; url: string; title: string };
+      try {
+        cap = (await chrome.tabs.sendMessage(tab.id, { type: "capture-page" })) as typeof cap;
+      } catch {
+        setError("Couldn't read this page (try refreshing it).");
+        return;
+      }
+      if (!cap.text.trim()) {
+        setError("Page has no readable text.");
+        return;
+      }
+      const created = newNote({
+        contentMd: cap.text,
+        title: cap.title || undefined,
+        sourceUrl: cap.url,
+        sourceTitle: cap.title,
+      });
+      const r = await request(
+        {
+          type: "notes.upsert",
+          payload: {
+            note: { ...created, sourceUrl: created.sourceUrl ?? null, sourceTitle: created.sourceTitle ?? null },
+          },
         },
-      },
-      is.upsertResult,
-    );
-    await refresh();
-    setView({ kind: "editor", noteId: r.note.id });
+        is.upsertResult,
+      );
+      await refresh();
+      setView({ kind: "editor", noteId: r.note.id });
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   return (
@@ -231,7 +239,7 @@ function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () =>
       {needsInstall ? (
         <>
           <strong>Native host chưa register.</strong>
-          <pre>{`cd /Users/trantan/Dev/Personal/notepad-ai
+          <pre>{`cd /Users/trantan/Dev/Personal/memex
 pnpm host:install --extension-id ${chrome.runtime.id}`}</pre>
           <span>Sau đó <kbd>⌘Q</kbd> quit Chrome và mở lại.</span>
         </>
