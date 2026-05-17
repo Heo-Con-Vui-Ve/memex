@@ -69,6 +69,15 @@ export interface NotesSearchPayload {
   limit?: number;
 }
 
+// --- Tags ---
+
+export interface TagRow {
+  name: string;
+  noteCount: number;
+}
+
+export interface TagsListPayload {}
+
 // --- Folders ---
 
 export interface FolderRow {
@@ -112,6 +121,7 @@ export type HostRequest =
   | { requestId: string; type: "notes.delete"; payload: NotesDeletePayload }
   | { requestId: string; type: "notes.search"; payload: NotesSearchPayload }
   | { requestId: string; type: "ai-jobs.list"; payload: AiJobsListPayload }
+  | { requestId: string; type: "tags.list"; payload: TagsListPayload }
   | { requestId: string; type: "folders.list"; payload: FoldersListPayload }
   | { requestId: string; type: "folders.create"; payload: FoldersCreatePayload }
   | { requestId: string; type: "folders.rename"; payload: FoldersRenamePayload }
@@ -153,6 +163,7 @@ export type HostResponse =
   | { requestId: string; type: "notes.delete.result"; deleted: boolean }
   | { requestId: string; type: "notes.search.result"; notes: NoteRow[] }
   | { requestId: string; type: "ai-jobs.list.result"; jobs: AiJobRow[] }
+  | { requestId: string; type: "tags.list.result"; tags: TagRow[] }
   | { requestId: string; type: "folders.list.result"; folders: FolderRow[] }
   | { requestId: string; type: "folders.create.result"; folder: FolderRow }
   | { requestId: string; type: "folders.rename.result"; folder: FolderRow }

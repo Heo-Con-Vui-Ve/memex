@@ -170,7 +170,9 @@ kbd {
   display: flex;
   gap: 6px;
   align-items: stretch;
+  flex-wrap: wrap; /* on very narrow widths the quick-action icons wrap to a second line instead of getting hidden */
 }
+.filter-row .icon-only { height: 34px; }
 .folder-trigger {
   flex: 1;
   justify-content: space-between;
@@ -182,6 +184,9 @@ kbd {
   border-radius: var(--r-md);
 }
 .folder-trigger:hover { color: var(--fg); }
+.folder-trigger.is-active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.tag-trigger { font-family: var(--mono); }
+.pop-item-empty { padding: 7px 10px; font-size: 12px; color: var(--fg-faint); font-style: italic; }
 .new-btn { height: 34px; padding: 0 14px; }
 .more-btn { height: 34px; }
 
@@ -229,25 +234,38 @@ kbd {
    ========================================================== */
 .notes-list {
   list-style: none;
-  padding: 6px;
+  padding: 10px;
   margin: 0;
   overflow-y: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
+/* Each note as a card with its own surface — gives clear visual separation
+   so adjacent notes don't bleed into one wall of text. */
 .notes-row {
-  padding: 10px 12px;
+  position: relative;
+  padding: 12px 14px;
+  padding-right: 38px; /* room for the hover-only delete button */
+  border: 1px solid var(--border);
   border-radius: var(--r-md);
+  background: var(--bg-1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  transition: background var(--t-fast) var(--ease);
+  gap: 6px;
+  transition: border-color var(--t-fast) var(--ease),
+              background var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease),
+              transform 80ms var(--ease);
 }
-.notes-row:hover { background: var(--bg-hover); }
-.notes-row:active { background: var(--bg-active); }
+.notes-row:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-2);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.06);
+}
+.notes-row:active { transform: scale(0.995); }
 .notes-row-top {
   display: flex;
   justify-content: space-between;
@@ -255,15 +273,16 @@ kbd {
   align-items: baseline;
 }
 .notes-row-title {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 13px;
+  color: var(--fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
 }
 .notes-row-when { color: var(--fg-faint); font-size: 11px; font-family: var(--mono); flex-shrink: 0; }
-.notes-row-preview { color: var(--fg-dim); font-size: 12px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.notes-row-preview { color: var(--fg-dim); font-size: 12px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .notes-row-meta {
   display: flex;
   flex-wrap: wrap;
@@ -272,6 +291,50 @@ kbd {
   margin-top: 2px;
 }
 .notes-row-source { font-size: 10px; color: var(--fg-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+/* Folder chip — shows the current folder so users can scan ownership at a
+   glance without opening the note. */
+.notes-row-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--bg-3);
+  color: var(--fg-dim);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* Per-row action cluster (folder picker + delete). Hidden until the row is
+   hovered so they don't compete with the primary scanning action; always
+   visible on touch devices. */
+.notes-row-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.notes-row:hover .notes-row-actions,
+.notes-row-actions:focus-within { opacity: 1; }
+@media (hover: none) { .notes-row-actions { opacity: 0.7; } }
+
+.notes-row-iconbtn {
+  padding: 4px;
+  min-width: 0;
+  height: 26px;
+  width: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  color: var(--fg-faint);
+}
+.notes-row-iconbtn:hover { color: var(--fg); background: var(--bg-hover); }
+.notes-row-delete:hover { color: var(--danger); background: var(--danger-soft); }
 
 /* ==========================================================
    EMPTY / BANNER STATES

@@ -20,6 +20,7 @@ import {
   createFolder,
   renameFolder,
   deleteFolder,
+  listTags,
   getSetting,
   setSetting,
 } from "./db.js";
@@ -116,6 +117,15 @@ async function handle(req: HostRequest): Promise<void> {
     case "folders.list": {
       try {
         write({ requestId: req.requestId, type: "folders.list.result", folders: listFolders() });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "tags.list": {
+      try {
+        write({ requestId: req.requestId, type: "tags.list.result", tags: listTags() });
       } catch (err) {
         write(errResp(req.requestId, "INTERNAL", (err as Error).message));
       }

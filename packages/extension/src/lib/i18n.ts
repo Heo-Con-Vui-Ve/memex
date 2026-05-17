@@ -60,6 +60,9 @@ interface Strings {
   allNotes: string;
   unsorted: string;
   filterByFolder: string;
+  filterByTag: string;
+  allTags: string;
+  noTags: string;
   newBtn: string;
   newFolder: string;
   folderName: string;
@@ -172,6 +175,9 @@ const en: Strings = {
   allNotes: "All notes",
   unsorted: "Unsorted",
   filterByFolder: "Filter by folder",
+  filterByTag: "Filter by tag",
+  allTags: "All tags",
+  noTags: "No tags yet",
   newBtn: "New",
   newFolder: "New folder",
   folderName: "Folder name?",
@@ -289,6 +295,9 @@ const vi: Strings = {
   allNotes: "Tất cả note",
   unsorted: "Chưa phân loại",
   filterByFolder: "Lọc theo thư mục",
+  filterByTag: "Lọc theo tag",
+  allTags: "Tất cả tag",
+  noTags: "Chưa có tag nào",
   newBtn: "Tạo",
   newFolder: "Thư mục mới",
   folderName: "Tên thư mục?",

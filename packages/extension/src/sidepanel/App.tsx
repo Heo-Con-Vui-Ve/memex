@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FolderRow, NoteRow } from "@memex/shared";
+import type { FolderRow, NoteRow, TagRow } from "@memex/shared";
 import { newNote } from "@memex/shared";
 import { is, request } from "../lib/rpc";
 import { Icon } from "../lib/Icons";
@@ -16,8 +16,10 @@ export function App() {
   const [view, setView] = useState<View>({ kind: "list" });
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [folders, setFolders] = useState<FolderRow[]>([]);
+  const [tags, setTags] = useState<TagRow[]>([]);
   const [query, setQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<string | null | "all">("all");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,18 +27,19 @@ export function App() {
     setLoading(true);
     try {
       if (query.trim()) {
+        // Full-text search ignores folder/tag filters by design — searching
+        // already narrows enough; layering filters on top is more confusing
+        // than useful at this UI scope.
         const r = await request(
           { type: "notes.search", payload: { query: query.trim(), limit: 200 } },
           is.searchResult,
         );
         setNotes(r.notes);
       } else {
-        const payload =
-          folderFilter === "all"
-            ? { limit: 200 }
-            : folderFilter === null
-            ? { limit: 200, folderId: null }
-            : { limit: 200, folderId: folderFilter };
+        const payload: { limit: number; folderId?: string | null; tag?: string } = { limit: 200 };
+        if (folderFilter === null) payload.folderId = null;
+        else if (typeof folderFilter === "string") payload.folderId = folderFilter;
+        if (tagFilter) payload.tag = tagFilter;
         const r = await request({ type: "notes.list", payload }, is.listResult);
         setNotes(r.notes);
       }
@@ -46,7 +49,7 @@ export function App() {
       setError((err as Error).message);
       setLoading(false);
     }
-  }, [query, folderFilter]);
+  }, [query, folderFilter, tagFilter]);
 
   const refreshFolders = useCallback(async () => {
     try {
@@ -55,7 +58,16 @@ export function App() {
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { void refreshFolders(); }, [refreshFolders]);
+  const refreshTags = useCallback(async () => {
+    try {
+      const r = await request({ type: "tags.list", payload: {} }, is.tagList);
+      setTags(r.tags);
+      // If the active filter references a tag that no longer exists, clear it.
+      if (tagFilter && !r.tags.some((t) => t.name === tagFilter)) setTagFilter(null);
+    } catch { /* ignore */ }
+  }, [tagFilter]);
+
+  useEffect(() => { void refreshFolders(); void refreshTags(); }, [refreshFolders, refreshTags]);
   useEffect(() => {
     const t = setTimeout(() => void refresh(), query.trim() ? 220 : 0);
     return () => clearTimeout(t);
@@ -125,6 +137,44 @@ export function App() {
     }
   }
 
+  async function deleteNoteById(id: string) {
+    // Optimistic: drop from local state first so the row disappears
+    // instantly, then resync from the host so any failure self-corrects.
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await request({ type: "notes.delete", payload: { id } }, is.deleteResult);
+      // Tags may now have stale counts (or vanished entries) since we removed
+      // their owner — refresh so the picker stays accurate.
+      void refreshTags();
+    } catch (err) {
+      setError((err as Error).message);
+      await refresh();
+    }
+  }
+
+  async function moveNoteToFolder(id: string, folderId: string | null) {
+    const target = notes.find((n) => n.id === id);
+    if (!target) return;
+    // Optimistic: reflect the move in local state immediately. If the current
+    // filter excludes the new folder, the row disappears; if not, it stays.
+    const optimistic: NoteRow = { ...target, folderId, updatedAt: Date.now() };
+    setNotes((prev) => prev.map((n) => (n.id === id ? optimistic : n)));
+    try {
+      await request(
+        { type: "notes.upsert", payload: { note: optimistic } },
+        is.upsertResult,
+      );
+      // Folder note-count needs a refresh so the picker shows the right totals.
+      void refreshFolders();
+      // And if the active filter is folder-scoped, re-fetch so the list
+      // reflects the new membership.
+      if (folderFilter !== "all") void refresh();
+    } catch (err) {
+      setError((err as Error).message);
+      await refresh();
+    }
+  }
+
   async function captureWholePage() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -172,6 +222,9 @@ export function App() {
             folders={folders}
             folderFilter={folderFilter}
             onFolderFilter={setFolderFilter}
+            tags={tags}
+            tagFilter={tagFilter}
+            onTagFilter={setTagFilter}
             onNew={() => void newBlank()}
             onCaptureSelection={() => void captureSelection()}
             onCaptureWholePage={() => void captureWholePage()}
@@ -187,7 +240,13 @@ export function App() {
               onCreate={query ? undefined : () => void newBlank()}
             />
           ) : (
-            <NotesList notes={notes} onOpen={(id) => setView({ kind: "editor", noteId: id })} />
+            <NotesList
+              notes={notes}
+              folders={folders}
+              onOpen={(id) => setView({ kind: "editor", noteId: id })}
+              onDelete={(id) => void deleteNoteById(id)}
+              onMoveToFolder={(id, folderId) => void moveNoteToFolder(id, folderId)}
+            />
           )}
         </>
       ) : activeNote ? (
@@ -196,7 +255,12 @@ export function App() {
           note={activeNote}
           folders={folders}
           onBack={() => setView({ kind: "list" })}
-          onSaved={(updated) => setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))}
+          onSaved={(updated) => {
+            setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+            // Tags or folder membership may have shifted — re-sync pickers.
+            void refreshTags();
+            void refreshFolders();
+          }}
           onDeleted={() => {
             setNotes((prev) => prev.filter((n) => n.id !== activeNote.id));
             setView({ kind: "list" });

@@ -121,6 +121,8 @@ export const is = {
     r.type === "notes.search.result",
   jobList: (r: HostResponse): r is Extract<HostResponse, { type: "ai-jobs.list.result" }> =>
     r.type === "ai-jobs.list.result",
+  tagList: (r: HostResponse): r is Extract<HostResponse, { type: "tags.list.result" }> =>
+    r.type === "tags.list.result",
   folderList: (r: HostResponse): r is Extract<HostResponse, { type: "folders.list.result" }> =>
     r.type === "folders.list.result",
   folderCreated: (r: HostResponse): r is Extract<HostResponse, { type: "folders.create.result" }> =>

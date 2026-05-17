@@ -5,6 +5,7 @@ import type {
   AiJobRow,
   FolderRow,
   NoteRow,
+  TagRow,
 } from "@memex/shared";
 import { getDbPath } from "./paths.js";
 
@@ -141,30 +142,38 @@ export function listNotes(
   filter: { folderId?: string | null; tag?: string } = {},
 ): NoteRow[] {
   const d = openDb();
-  let rows: NoteRowDb[];
-  if (filter.tag) {
-    rows = d
-      .prepare(
-        `SELECT n.* FROM notes n
-         INNER JOIN note_tags t ON t.note_id = n.id AND t.tag = ?
-         ORDER BY n.updated_at DESC LIMIT ? OFFSET ?`,
-      )
-      .all(filter.tag, limit, offset) as NoteRowDb[];
-  } else if (filter.folderId === null) {
-    rows = d
-      .prepare("SELECT * FROM notes WHERE folder_id IS NULL ORDER BY updated_at DESC LIMIT ? OFFSET ?")
-      .all(limit, offset) as NoteRowDb[];
+  // Compose folder + tag filters as AND so the UI can stack them. Folder
+  // semantics: undefined = no filter, null = unsorted only, string = that
+  // folder. Tag is a single string or undefined.
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const join = filter.tag
+    ? "INNER JOIN note_tags t ON t.note_id = n.id AND t.tag = ?"
+    : "";
+  if (filter.tag) params.push(filter.tag);
+  if (filter.folderId === null) {
+    where.push("n.folder_id IS NULL");
   } else if (typeof filter.folderId === "string") {
-    rows = d
-      .prepare("SELECT * FROM notes WHERE folder_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?")
-      .all(filter.folderId, limit, offset) as NoteRowDb[];
-  } else {
-    rows = d
-      .prepare("SELECT * FROM notes ORDER BY updated_at DESC LIMIT ? OFFSET ?")
-      .all(limit, offset) as NoteRowDb[];
+    where.push("n.folder_id = ?");
+    params.push(filter.folderId);
   }
-  const tags = tagsFor(d, rows.map((r) => r.id));
-  return rows.map((r) => rowToNote(r, tags.get(r.id) ?? []));
+  const sql = `SELECT n.* FROM notes n ${join}
+    ${where.length ? "WHERE " + where.join(" AND ") : ""}
+    ORDER BY n.updated_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+  const rows = d.prepare(sql).all(...params) as NoteRowDb[];
+  const tagsMap = tagsFor(d, rows.map((r) => r.id));
+  return rows.map((r) => rowToNote(r, tagsMap.get(r.id) ?? []));
+}
+
+export function listTags(): TagRow[] {
+  const d = openDb();
+  const rows = d
+    .prepare(
+      "SELECT tag AS name, COUNT(*) AS note_count FROM note_tags GROUP BY tag ORDER BY note_count DESC, tag ASC",
+    )
+    .all() as Array<{ name: string; note_count: number }>;
+  return rows.map((r) => ({ name: r.name, noteCount: r.note_count }));
 }
 
 export function getNote(id: string): NoteRow | null {

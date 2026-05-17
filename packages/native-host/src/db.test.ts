@@ -12,6 +12,7 @@ import {
   listAiJobs,
   listFolders,
   listNotes,
+  listTags,
   openDb,
   renameFolder,
   searchNotes,
@@ -81,6 +82,54 @@ describe("notes", () => {
       "unsorted B",
     ]);
     expect(listNotes(100, 0, { tag: "t1" }).map((n) => n.title)).toEqual(["unsorted A"]);
+  });
+
+  it("ANDs folder and tag filters when both are set", () => {
+    const work = createFolder("Work");
+    const personal = createFolder("Personal");
+    upsertNote(freshNote({ title: "work#urgent", folderId: work.id, tags: ["urgent"] }));
+    upsertNote(freshNote({ title: "work#chill", folderId: work.id, tags: ["chill"] }));
+    upsertNote(freshNote({ title: "personal#urgent", folderId: personal.id, tags: ["urgent"] }));
+    upsertNote(freshNote({ title: "unsorted#urgent", tags: ["urgent"] }));
+
+    // Work AND urgent → only the work note tagged urgent.
+    expect(
+      listNotes(100, 0, { folderId: work.id, tag: "urgent" }).map((n) => n.title),
+    ).toEqual(["work#urgent"]);
+
+    // Unsorted AND urgent → only the unsorted one.
+    expect(
+      listNotes(100, 0, { folderId: null, tag: "urgent" }).map((n) => n.title),
+    ).toEqual(["unsorted#urgent"]);
+
+    // No folder filter, tag urgent → all three urgent notes.
+    expect(listNotes(100, 0, { tag: "urgent" }).map((n) => n.title).sort()).toEqual([
+      "personal#urgent",
+      "unsorted#urgent",
+      "work#urgent",
+    ]);
+  });
+});
+
+describe("listTags", () => {
+  it("returns distinct tags with counts, sorted by frequency then name", () => {
+    upsertNote(freshNote({ tags: ["alpha", "beta"] }));
+    upsertNote(freshNote({ tags: ["alpha", "gamma"] }));
+    upsertNote(freshNote({ tags: ["alpha"] }));
+
+    const got = listTags();
+    expect(got).toEqual([
+      { name: "alpha", noteCount: 3 },
+      { name: "beta", noteCount: 1 },
+      { name: "gamma", noteCount: 1 },
+    ]);
+  });
+
+  it("drops tags whose only note was deleted", () => {
+    const n = upsertNote(freshNote({ tags: ["lonely"] }));
+    expect(listTags().some((t) => t.name === "lonely")).toBe(true);
+    deleteNote(n.id);
+    expect(listTags().some((t) => t.name === "lonely")).toBe(false);
   });
 });
 
