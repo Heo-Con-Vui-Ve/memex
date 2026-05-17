@@ -1,0 +1,28 @@
+{
+  "name": "@notepad-ai/host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "notepad-ai-host": "./bin/notepad-ai-host.mjs",
+    "notepad-ai-install": "./bin/notepad-ai-install.mjs"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/postbuild.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "install:host": "node ./bin/notepad-ai-install.mjs"
+  },
+  "dependencies": {
+    "@notepad-ai/shared": "workspace:*",
+    "better-sqlite3": "11.3.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.11",
+    "@types/node": "20.14.10",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vitest": "2.1.4"
+  }
+}
