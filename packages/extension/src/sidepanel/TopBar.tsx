@@ -16,6 +16,7 @@ interface Props {
   onNew: () => void;
   onCaptureSelection: () => void;
   onCaptureWholePage: () => void;
+  onRecordMeet: () => void;
   onFoldersChanged: () => void;
 }
 
@@ -127,6 +128,9 @@ export function TopBar(p: Props) {
         </button>
         <button className="icon-only ghost" onClick={p.onCaptureWholePage} title={tr.saveWholePage} aria-label={tr.saveWholePage}>
           <Icon.Notes size={14} />
+        </button>
+        <button className="icon-only ghost" onClick={p.onRecordMeet} title={tr.recordMeeting} aria-label={tr.recordMeeting}>
+          <Icon.Mic size={14} />
         </button>
         <button className="icon-only ghost" onClick={() => chrome.runtime.openOptionsPage()} title={tr.settings} aria-label={tr.settings}>
           <Icon.Command size={14} />

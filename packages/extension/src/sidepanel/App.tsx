@@ -8,8 +8,9 @@ import { captureFromTab } from "../lib/captureFromTab";
 import { NotesList } from "./notes/NotesList";
 import { Editor } from "./notes/Editor";
 import { TopBar } from "./TopBar";
+import { MeetRecorder } from "./meet/MeetRecorder";
 
-type View = { kind: "list" } | { kind: "editor"; noteId: string };
+type View = { kind: "list" } | { kind: "editor"; noteId: string } | { kind: "meet" };
 
 export function App() {
   const tr = useT();
@@ -37,8 +38,11 @@ export function App() {
         setNotes(r.notes);
       } else {
         const payload: { limit: number; folderId?: string | null; tag?: string } = { limit: 200 };
+        // "all" is a UI-only sentinel meaning "no folder filter" — do NOT
+        // forward it to the host, which would interpret it as a literal
+        // folder id and return zero rows.
         if (folderFilter === null) payload.folderId = null;
-        else if (typeof folderFilter === "string") payload.folderId = folderFilter;
+        else if (folderFilter !== "all") payload.folderId = folderFilter;
         if (tagFilter) payload.tag = tagFilter;
         const r = await request({ type: "notes.list", payload }, is.listResult);
         setNotes(r.notes);
@@ -228,17 +232,34 @@ export function App() {
             onNew={() => void newBlank()}
             onCaptureSelection={() => void captureSelection()}
             onCaptureWholePage={() => void captureWholePage()}
+            onRecordMeet={() => setView({ kind: "meet" })}
             onFoldersChanged={() => void refreshFolders()}
           />
           {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
           {loading ? (
             <div className="empty"><Icon.Loader size={20} /> <span>{tr.loading}</span></div>
           ) : notes.length === 0 ? (
-            <EmptyState
-              title={query ? tr.noMatches : tr.emptyTitle}
-              hint={query ? tr.noMatchesHint : tr.emptyHint}
-              onCreate={query ? undefined : () => void newBlank()}
-            />
+            (() => {
+              const filtersActive = !query && (folderFilter !== "all" || tagFilter !== null);
+              if (filtersActive) {
+                return (
+                  <EmptyState
+                    title={tr.noFilterMatches}
+                    hint={tr.noFilterMatchesHint}
+                    primaryLabel={tr.clearFilters}
+                    onPrimary={() => { setFolderFilter("all"); setTagFilter(null); }}
+                  />
+                );
+              }
+              return (
+                <EmptyState
+                  title={query ? tr.noMatches : tr.emptyTitle}
+                  hint={query ? tr.noMatchesHint : tr.emptyHint}
+                  primaryLabel={query ? undefined : tr.newNote}
+                  onPrimary={query ? undefined : () => void newBlank()}
+                />
+              );
+            })()
           ) : (
             <NotesList
               notes={notes}
@@ -249,6 +270,11 @@ export function App() {
             />
           )}
         </>
+      ) : view.kind === "meet" ? (
+        <MeetRecorder
+          onBack={() => setView({ kind: "list" })}
+          onSaved={() => { void refresh(); void refreshTags(); }}
+        />
       ) : activeNote ? (
         <Editor
           key={activeNote.id}
@@ -263,6 +289,11 @@ export function App() {
           }}
           onDeleted={() => {
             setNotes((prev) => prev.filter((n) => n.id !== activeNote.id));
+            // Tag/folder counts (and possibly memberships) shift when a note
+            // is gone — refresh pickers so we don't end up with a stale filter
+            // pointing at a tag whose last note we just deleted.
+            void refreshTags();
+            void refreshFolders();
             setView({ kind: "list" });
           }}
         />
@@ -277,21 +308,22 @@ export function App() {
 function EmptyState({
   title,
   hint,
-  onCreate,
+  primaryLabel,
+  onPrimary,
 }: {
   title: string;
   hint: string;
-  onCreate?: () => void;
+  primaryLabel?: string;
+  onPrimary?: () => void;
 }) {
-  const tr = useT();
   return (
     <div className="empty empty-big">
       <Icon.Notes size={28} />
       <h3>{title}</h3>
       <p>{hint}</p>
-      {onCreate && (
-        <button className="primary" onClick={onCreate}>
-          <Icon.Plus size={14} /> {tr.newNote}
+      {onPrimary && primaryLabel && (
+        <button className="primary" onClick={onPrimary}>
+          {primaryLabel}
         </button>
       )}
     </div>

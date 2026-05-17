@@ -77,10 +77,37 @@ interface Strings {
   emptyTitle: string;
   emptyHint: string;
   newNote: string;
+  noFilterMatches: string;
+  noFilterMatchesHint: string;
+  clearFilters: string;
   // capture errors
   errPageUnreadable: string;
   errNoSelection: string;
   errPageEmpty: string;
+  // meet recorder
+  recordMeeting: string;
+  meetRecordingTitle: string;
+  meetScanning: string;
+  meetNoTab: string;
+  meetNoTabHint: string;
+  meetStart: string;
+  meetStartFor: (title: string) => string;
+  meetStopSave: string;
+  meetDiscard: string;
+  meetCaptionsOn: string;
+  meetCaptionsOff: string;
+  meetCaptionsOffHint: string;
+  meetSaved: string;
+  meetDuration: (mmss: string) => string;
+  meetEmptyTranscript: string;
+  meetBack: string;
+  meetFallbackTitle: string;
+  meetInjectFailed: (reason: string) => string;
+  meetScriptMissing: string;
+  meetNoteHeading: string;
+  meetTranscriptHeading: string;
+  meetNoteEmpty: string;
+  meetReloadHint: string;
   // banner
   hostNotRegistered: string;
   hostNotRegisteredAfter: string;
@@ -190,10 +217,36 @@ const en: Strings = {
   noMatchesHint: "Try a different query.",
   emptyTitle: "Your second brain is empty",
   emptyHint: "Capture from a webpage or create a blank note.",
-  newNote: "New note",
+  newNote: "+ New note",
+  noFilterMatches: "No notes match this filter",
+  noFilterMatchesHint: "Try a different folder or tag — or clear filters to see everything.",
+  clearFilters: "Clear filters",
   errPageUnreadable: "Couldn't read this page (try refreshing it).",
   errNoSelection: "No text selected on the current page.",
   errPageEmpty: "Page has no readable text.",
+  recordMeeting: "Record Google Meet",
+  meetRecordingTitle: "Recording meeting",
+  meetScanning: "Looking for a Google Meet tab…",
+  meetNoTab: "No Google Meet tab open",
+  meetNoTabHint: "Open a meeting at meet.google.com, then come back here.",
+  meetStart: "Start recording",
+  meetStartFor: (title) => `Start recording "${title}"`,
+  meetStopSave: "Stop & save",
+  meetDiscard: "Discard",
+  meetCaptionsOn: "Captions detected",
+  meetCaptionsOff: "Captions not detected",
+  meetCaptionsOffHint: "Turn on captions in Meet (CC button) — Memex records the live caption stream.",
+  meetSaved: "Meeting saved as note",
+  meetDuration: (mmss) => `Duration: ${mmss}`,
+  meetEmptyTranscript: "No transcript yet — speak up or check captions.",
+  meetBack: "Back to notes",
+  meetFallbackTitle: "Meeting",
+  meetInjectFailed: (reason) => `Cannot inject Memex into this tab: ${reason}`,
+  meetScriptMissing: "Meet content script not found in manifest.",
+  meetNoteHeading: "Meeting",
+  meetTranscriptHeading: "Transcript",
+  meetNoteEmpty: "_(no captions captured)_",
+  meetReloadHint: "Tip: if this tab was open before Memex was reloaded, refresh it or reload the extension and try again.",
   hostNotRegistered: "Native host not registered.",
   hostNotRegisteredAfter: "Then quit Chrome and reopen.",
   dismiss: "Dismiss",
@@ -310,10 +363,36 @@ const vi: Strings = {
   noMatchesHint: "Thử từ khoá khác.",
   emptyTitle: "Bộ não thứ hai còn trống",
   emptyHint: "Lấy nội dung từ một trang web hoặc tạo note trắng.",
-  newNote: "Note mới",
+  newNote: "+ Note mới",
+  noFilterMatches: "Không có note nào khớp filter",
+  noFilterMatchesHint: "Thử folder hoặc tag khác — hoặc clear filter để xem toàn bộ.",
+  clearFilters: "Clear filter",
   errPageUnreadable: "Không đọc được trang này (thử reload).",
   errNoSelection: "Chưa chọn đoạn text nào trên trang.",
   errPageEmpty: "Trang không có nội dung text.",
+  recordMeeting: "Ghi lại Google Meet",
+  meetRecordingTitle: "Đang ghi cuộc họp",
+  meetScanning: "Đang tìm tab Google Meet…",
+  meetNoTab: "Chưa có tab Google Meet nào",
+  meetNoTabHint: "Mở meet.google.com để vào cuộc họp, rồi quay lại đây.",
+  meetStart: "Bắt đầu ghi",
+  meetStartFor: (title) => `Bắt đầu ghi "${title}"`,
+  meetStopSave: "Dừng & lưu",
+  meetDiscard: "Bỏ",
+  meetCaptionsOn: "Đã thấy phụ đề",
+  meetCaptionsOff: "Chưa thấy phụ đề",
+  meetCaptionsOffHint: "Bật phụ đề trong Meet (nút CC) — Memex ghi lại stream phụ đề trực tiếp.",
+  meetSaved: "Đã lưu cuộc họp thành note",
+  meetDuration: (mmss) => `Thời lượng: ${mmss}`,
+  meetEmptyTranscript: "Chưa có nội dung — chờ ai đó nói hoặc kiểm tra phụ đề.",
+  meetBack: "Về danh sách note",
+  meetFallbackTitle: "Cuộc họp",
+  meetInjectFailed: (reason) => `Không inject được Memex vào tab này: ${reason}`,
+  meetScriptMissing: "Không tìm thấy content script Meet trong manifest.",
+  meetNoteHeading: "Cuộc họp",
+  meetTranscriptHeading: "Nội dung cuộc họp",
+  meetNoteEmpty: "_(không có phụ đề nào được ghi lại)_",
+  meetReloadHint: "Mẹo: nếu tab này mở trước khi reload Memex, hãy refresh tab hoặc reload extension rồi thử lại.",
   hostNotRegistered: "Native host chưa register.",
   hostNotRegisteredAfter: "Sau đó quit Chrome và mở lại.",
   dismiss: "Đóng",

@@ -38,6 +38,11 @@ export default defineManifest({
       js: ["src/content/selectionCapture.ts"],
       run_at: "document_idle",
     },
+    {
+      matches: ["https://meet.google.com/*"],
+      js: ["src/content/meetCapture.ts"],
+      run_at: "document_idle",
+    },
   ],
   permissions: ["nativeMessaging", "sidePanel", "storage", "activeTab", "scripting"],
   host_permissions: ["<all_urls>"],

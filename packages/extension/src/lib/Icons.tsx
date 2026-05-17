@@ -40,4 +40,6 @@ export const Icon = {
   Edit: (p: IconProps) => svg({ ...p, children: (<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="m18.5 2.5 3 3L12 15l-4 1 1-4z" /></>) }),
   Check: (p: IconProps) => svg({ ...p, children: <path d="M20 6 9 17l-5-5" /> }),
   Loader: (p: IconProps) => svg({ ...p, className: "spin", children: (<><path d="M12 2v4" /><path d="M12 18v4" /><path d="m4.93 4.93 2.83 2.83" /><path d="m16.24 16.24 2.83 2.83" /><path d="M2 12h4" /><path d="M18 12h4" /><path d="m4.93 19.07 2.83-2.83" /><path d="m16.24 7.76 2.83-2.83" /></>) }),
+  Mic: (p: IconProps) => svg({ ...p, children: (<><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /><path d="M8 21h8" /></>) }),
+  Dot: (p: IconProps) => svg({ ...p, children: <circle cx="12" cy="12" r="4" fill="currentColor" /> }),
 };

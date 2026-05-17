@@ -94,6 +94,18 @@ function migrate(d: Database.Database): void {
   d.prepare(
     "INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('version', '3')",
   ).run();
+
+  // Defensive cleanup of orphan referential rows that older DB sessions may
+  // have left behind when foreign_keys wasn't enforced. Without this, a
+  // deleted note can leave a note_tags row pointing at it → that tag shows
+  // up in tags.list with count=1 but notes.list filtered by it returns
+  // nothing, which looks to the user like "data won't load".
+  d.exec(`
+    DELETE FROM note_tags WHERE note_id NOT IN (SELECT id FROM notes);
+    UPDATE notes SET folder_id = NULL
+      WHERE folder_id IS NOT NULL
+      AND folder_id NOT IN (SELECT id FROM folders);
+  `);
 }
 
 interface NoteRowDb {
