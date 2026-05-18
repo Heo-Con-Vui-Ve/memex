@@ -123,6 +123,12 @@ export const is = {
     r.type === "ai-jobs.list.result",
   tagList: (r: HostResponse): r is Extract<HostResponse, { type: "tags.list.result" }> =>
     r.type === "tags.list.result",
+  mediaSave: (r: HostResponse): r is Extract<HostResponse, { type: "media.save.result" }> =>
+    r.type === "media.save.result",
+  mediaGet: (r: HostResponse): r is Extract<HostResponse, { type: "media.get.result" }> =>
+    r.type === "media.get.result",
+  mediaDelete: (r: HostResponse): r is Extract<HostResponse, { type: "media.delete.result" }> =>
+    r.type === "media.delete.result",
   folderList: (r: HostResponse): r is Extract<HostResponse, { type: "folders.list.result" }> =>
     r.type === "folders.list.result",
   folderCreated: (r: HostResponse): r is Extract<HostResponse, { type: "folders.create.result" }> =>

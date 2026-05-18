@@ -7,10 +7,37 @@ import { useT } from "../lib/i18n";
 import { captureFromTab } from "../lib/captureFromTab";
 import { NotesList } from "./notes/NotesList";
 import { Editor } from "./notes/Editor";
-import { TopBar } from "./TopBar";
+import { TopBar, type SortKey } from "./TopBar";
 import { MeetRecorder } from "./meet/MeetRecorder";
+import { AutoOrganizeModal } from "./notes/AutoOrganizeModal";
+import { FoldersManager } from "./notes/FoldersManager";
 
-type View = { kind: "list" } | { kind: "editor"; noteId: string } | { kind: "meet" };
+const SORT_STORAGE_KEY = "memex.sort";
+function loadSort(): SortKey {
+  try {
+    const raw = localStorage.getItem(SORT_STORAGE_KEY);
+    if (raw === "updated" || raw === "created" || raw === "az" || raw === "za") return raw;
+  } catch {}
+  return "updated";
+}
+function saveSort(s: SortKey): void {
+  try { localStorage.setItem(SORT_STORAGE_KEY, s); } catch {}
+}
+function sortNotes(notes: NoteRow[], key: SortKey): NoteRow[] {
+  const copy = [...notes];
+  switch (key) {
+    case "updated": return copy.sort((a, b) => b.updatedAt - a.updatedAt);
+    case "created": return copy.sort((a, b) => b.createdAt - a.createdAt);
+    case "az":      return copy.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    case "za":      return copy.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
+  }
+}
+
+type View =
+  | { kind: "list" }
+  | { kind: "editor"; noteId: string }
+  | { kind: "meet" }
+  | { kind: "folders" };
 
 export function App() {
   const tr = useT();
@@ -21,8 +48,13 @@ export function App() {
   const [query, setQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<string | null | "all">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [sortKey, setSortKeyState] = useState<SortKey>(loadSort);
+  const [organizeOpen, setOrganizeOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const setSortKey = (k: SortKey) => { setSortKeyState(k); saveSort(k); };
+  const sortedNotes = useMemo(() => sortNotes(notes, sortKey), [notes, sortKey]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -229,11 +261,15 @@ export function App() {
             tags={tags}
             tagFilter={tagFilter}
             onTagFilter={setTagFilter}
+            sortKey={sortKey}
+            onSortKey={setSortKey}
             onNew={() => void newBlank()}
             onCaptureSelection={() => void captureSelection()}
             onCaptureWholePage={() => void captureWholePage()}
             onRecordMeet={() => setView({ kind: "meet" })}
+            onAutoOrganize={() => setOrganizeOpen(true)}
             onFoldersChanged={() => void refreshFolders()}
+            onManageFolders={() => setView({ kind: "folders" })}
           />
           {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
           {loading ? (
@@ -262,11 +298,22 @@ export function App() {
             })()
           ) : (
             <NotesList
-              notes={notes}
+              notes={sortedNotes}
               folders={folders}
               onOpen={(id) => setView({ kind: "editor", noteId: id })}
               onDelete={(id) => void deleteNoteById(id)}
               onMoveToFolder={(id, folderId) => void moveNoteToFolder(id, folderId)}
+            />
+          )}
+          {organizeOpen && (
+            <AutoOrganizeModal
+              notes={notes}
+              folders={folders}
+              onClose={() => setOrganizeOpen(false)}
+              onApplied={() => {
+                void refresh();
+                void refreshFolders();
+              }}
             />
           )}
         </>
@@ -274,6 +321,14 @@ export function App() {
         <MeetRecorder
           onBack={() => setView({ kind: "list" })}
           onSaved={() => { void refresh(); void refreshTags(); }}
+        />
+      ) : view.kind === "folders" ? (
+        <FoldersManager
+          folders={folders}
+          onBack={() => setView({ kind: "list" })}
+          onChanged={() => { void refreshFolders(); void refresh(); }}
+          activeFilterId={folderFilter}
+          onFilterReset={() => setFolderFilter("all")}
         />
       ) : activeNote ? (
         <Editor

@@ -58,3 +58,14 @@ function migrateLegacyDir(target: string): void {
 export function getDbPath(): string {
   return join(getDataDir(), "notes.db");
 }
+
+/**
+ * Where paste-into-note images are written. One file per image. The id used
+ * in `memex-media://<id>` URLs is the filename (incl. extension), so resolving
+ * is just `join(getMediaDir(), id)`.
+ */
+export function getMediaDir(): string {
+  const dir = join(getDataDir(), "media");
+  try { mkdirSync(dir, { recursive: true }); } catch {}
+  return dir;
+}

@@ -1,11 +1,13 @@
-import { useImperativeHandle, forwardRef } from "react";
+import { useEffect, useImperativeHandle, useRef, forwardRef } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Image from "@tiptap/extension-image";
 import { Markdown } from "tiptap-markdown";
 import { useT } from "../../lib/i18n";
+import { is, request } from "../../lib/rpc";
 
 export interface SelectionInfo {
   /** Plain-text contents of the current selection (newlines preserved). */
@@ -38,6 +40,82 @@ interface Props {
   onChange: (markdown: string) => void;
 }
 
+/**
+ * In-memory cache for memex-media:// URL → object URL. Cached for the page
+ * lifetime so subsequent renders/scrolls don't re-fetch the same image from
+ * the native host. Per-image evict on unload is fine (Chrome resets the
+ * panel anyway when closed).
+ */
+const objectUrlCache = new Map<string, string>();
+async function resolveMediaUrl(token: string): Promise<string> {
+  // token looks like "memex-media://<uuid>.<ext>"
+  const id = token.replace(/^memex-media:\/\//, "");
+  const cached = objectUrlCache.get(id);
+  if (cached) return cached;
+  const res = await request({ type: "media.get", payload: { id } }, is.mediaGet);
+  const blob = await (await fetch(`data:${res.mimeType};base64,${res.dataBase64}`)).blob();
+  const url = URL.createObjectURL(blob);
+  objectUrlCache.set(id, url);
+  return url;
+}
+
+/**
+ * Default Image extension renders <img src={attrs.src}>. Browsers can't load
+ * a `memex-media://` URL directly, so we override the renderHTML to start
+ * with an empty src + a data-mediaSrc the node view (created via the same
+ * extension) resolves async. We don't actually need a node view here — the
+ * DOM is editable and we just need the src swapped once after mount; a
+ * tiny mutation observer accomplishes that for any <img> with our token.
+ */
+const MemexImage = Image.configure({
+  inline: false,
+  allowBase64: true,
+  HTMLAttributes: { class: "rich-img", loading: "lazy" },
+});
+
+/**
+ * Read a clipboard/dropped File, send the bytes to the host's media store,
+ * and return the `memex-media://<id>` URL token to insert into the doc.
+ */
+async function handleImageFile(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  // Manual base64 (binary-safe) — btoa(String.fromCharCode(...)) blows the
+  // stack on multi-MB images.
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)));
+  }
+  const dataBase64 = btoa(binary);
+  const ext = (file.name.split(".").pop() || file.type.split("/")[1] || "png").toLowerCase();
+  const res = await request(
+    { type: "media.save", payload: { dataBase64, ext } },
+    is.mediaSave,
+  );
+  return `memex-media://${res.id}`;
+}
+
+function installMediaResolver(rootEl: HTMLElement | null): () => void {
+  if (!rootEl) return () => {};
+  function resolveAll() {
+    const imgs = rootEl!.querySelectorAll<HTMLImageElement>('img[src^="memex-media://"]');
+    imgs.forEach((img) => {
+      const token = img.getAttribute("src") ?? "";
+      img.setAttribute("data-media-token", token);
+      // Empty out the broken src so the browser stops trying to load it.
+      img.setAttribute("src", "");
+      resolveMediaUrl(token).then((url) => { img.src = url; }).catch(() => {
+        img.alt = "[image unavailable]";
+      });
+    });
+  }
+  resolveAll();
+  const mo = new MutationObserver(() => resolveAll());
+  mo.observe(rootEl, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+  return () => mo.disconnect();
+}
+
 export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEditor(
   { initialMarkdown, onChange },
   ref,
@@ -49,6 +127,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       Placeholder.configure({ placeholder: tr.startWriting }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      MemexImage,
       Markdown.configure({
         html: false,
         tightLists: true,
@@ -67,6 +146,48 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     },
     editorProps: {
       attributes: { class: "rich-content" },
+      handlePaste(view, event) {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        const imageNode = view.state.schema.nodes.image;
+        if (!imageNode) return false;
+        for (const item of Array.from(items)) {
+          if (item.kind !== "file" || !item.type.startsWith("image/")) continue;
+          const file = item.getAsFile();
+          if (!file) continue;
+          event.preventDefault();
+          handleImageFile(file).then((token) => {
+            view.dispatch(
+              view.state.tr.replaceSelectionWith(imageNode.create({ src: token })),
+            );
+          }).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.warn("[memex] failed to save pasted image", err);
+          });
+          return true;
+        }
+        return false;
+      },
+      handleDrop(view, event) {
+        const dt = event.dataTransfer;
+        if (!dt || dt.files.length === 0) return false;
+        const file = Array.from(dt.files).find((f) => f.type.startsWith("image/"));
+        if (!file) return false;
+        const imageNode = view.state.schema.nodes.image;
+        if (!imageNode) return false;
+        event.preventDefault();
+        handleImageFile(file).then((token) => {
+          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+          const tr = pos != null
+            ? view.state.tr.insert(pos, imageNode.create({ src: token }))
+            : view.state.tr.replaceSelectionWith(imageNode.create({ src: token }));
+          view.dispatch(tr);
+        }).catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn("[memex] failed to save dropped image", err);
+        });
+        return true;
+      },
     },
   });
 
@@ -154,6 +275,12 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     [editor],
   );
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!editor) return;
+    return installMediaResolver(scrollRef.current);
+  }, [editor]);
+
   // Intentionally no useEffect syncing `initialMarkdown` back into the editor.
   // The parent uses `key={note.id}` so switching to a different note remounts
   // this component (fresh `useEditor` with the new initial content). Within a
@@ -165,7 +292,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   return (
     <div className="rich-host">
       <Toolbar editor={editor} />
-      <div className="rich-scroll">
+      <div className="rich-scroll" ref={scrollRef}>
         <EditorContent editor={editor} />
       </div>
     </div>

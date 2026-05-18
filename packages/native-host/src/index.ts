@@ -25,6 +25,7 @@ import {
   setSetting,
 } from "./db.js";
 import { getActiveProvider, getProviderByName, type ProviderName } from "./providers/index.js";
+import { deleteMedia, getMedia, saveMedia } from "./media.js";
 import type { HostErrorCode } from "@memex/shared";
 
 const require = createRequire(import.meta.url);
@@ -132,6 +133,35 @@ async function handle(req: HostRequest): Promise<void> {
       return;
     }
 
+    case "media.save": {
+      try {
+        const { id, mimeType } = saveMedia(req.payload.dataBase64, req.payload.ext);
+        write({ requestId: req.requestId, type: "media.save.result", id, mimeType });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "media.get": {
+      try {
+        const { dataBase64, mimeType } = getMedia(req.payload.id);
+        write({ requestId: req.requestId, type: "media.get.result", dataBase64, mimeType });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
+    case "media.delete": {
+      try {
+        write({ requestId: req.requestId, type: "media.delete.result", deleted: deleteMedia(req.payload.id) });
+      } catch (err) {
+        write(errResp(req.requestId, "INTERNAL", (err as Error).message));
+      }
+      return;
+    }
+
     case "folders.create": {
       try {
         const folder = createFolder(req.payload.name, req.payload.parentId ?? null);
@@ -154,7 +184,7 @@ async function handle(req: HostRequest): Promise<void> {
 
     case "folders.delete": {
       try {
-        const deleted = deleteFolder(req.payload.id, req.payload.reassignToRoot ?? false);
+        const deleted = deleteFolder(req.payload.id, req.payload.mode ?? "unsort");
         write({ requestId: req.requestId, type: "folders.delete.result", deleted });
       } catch (err) {
         write(errResp(req.requestId, "INTERNAL", (err as Error).message));

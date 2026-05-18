@@ -10,13 +10,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "capture-page") {
-    // Quick-and-dirty readable text grab. A real "Reader Mode" extraction is
-    // Phase 2 (Readability.js-style); for now we strip script/style and grab
-    // body.innerText which the browser already collapses to readable text.
+    // Return cleaned HTML alongside plain text — the side panel converts the
+    // HTML to markdown via turndown so headings/lists/links/code survive.
+    // Plain text remains as a fallback when HTML→MD conversion produces an
+    // empty string (e.g. very weird DOMs).
     const clone = document.body.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll("script, style, noscript, svg, iframe").forEach((n) => n.remove());
+    clone.querySelectorAll("script, style, noscript, svg, iframe, link, meta").forEach((n) => n.remove());
+    // Drop every attribute except a small structural allowlist so the HTML
+    // doesn't drag along framework garbage / inline CSS / data-* hashes.
+    clone.querySelectorAll<HTMLElement>("*").forEach((el) => {
+      for (const attr of Array.from(el.attributes)) {
+        if (!["href", "src", "alt"].includes(attr.name)) el.removeAttribute(attr.name);
+      }
+    });
     sendResponse({
       text: (clone.innerText || "").trim(),
+      html: clone.innerHTML,
       url: window.location.href,
       title: document.title,
     });

@@ -143,10 +143,10 @@ kbd {
   flex-shrink: 0;
   background: var(--bg-1);
   border-bottom: 1px solid var(--border);
-  padding: 10px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 /* brand row removed — Chrome's side panel header already shows the extension name */
 .search-row {
@@ -156,39 +156,61 @@ kbd {
 }
 .search-icon {
   position: absolute;
-  left: 10px;
+  left: 8px;
   color: var(--fg-faint);
   pointer-events: none;
 }
 .search-row input {
   width: 100%;
-  padding-left: 32px;
-  font-size: 13px;
-  height: 34px;
+  padding-left: 28px;
+  padding-right: 10px;
+  font-size: 12px;
+  height: 28px;
 }
 .filter-row {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: stretch;
   flex-wrap: wrap; /* on very narrow widths the quick-action icons wrap to a second line instead of getting hidden */
 }
-.filter-row .icon-only { height: 34px; }
+.filter-row .icon-only {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 6px;
+}
 .folder-trigger {
-  flex: 1;
-  justify-content: space-between;
-  font-size: 12px;
+  /* Content-sized so the row stays compact and quick-action icons fit beside
+     the filters at typical side-panel widths instead of wrapping. The folder
+     trigger gets flex:1 1 0 so it absorbs leftover space (and truncates with
+     ellipsis) when the active folder name is very long. */
+  flex: 0 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 4px;
+  font-size: 11px;
   background: var(--bg-2);
   color: var(--fg-dim);
-  height: 34px;
-  padding: 0 12px;
-  border-radius: var(--r-md);
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.folder-trigger:first-of-type { flex: 1 1 0; }
 .folder-trigger:hover { color: var(--fg); }
 .folder-trigger.is-active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .tag-trigger { font-family: var(--mono); }
 .pop-item-empty { padding: 7px 10px; font-size: 12px; color: var(--fg-faint); font-style: italic; }
-.new-btn { height: 34px; padding: 0 14px; }
-.more-btn { height: 34px; }
+.new-btn {
+  /* Icon-only "+" — the keyboard hint + sidebar context make the label
+     redundant; saves ~50px on the row. */
+  height: 28px;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.more-btn { height: 28px; }
 
 /* pop / dropdown */
 .folder-pop { position: relative; }
@@ -228,6 +250,143 @@ kbd {
 .pop-sep { height: 1px; background: var(--border); margin: 4px 0; }
 .pop-count { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--fg-faint); }
 .pop-section-label { padding: 6px 10px 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-faint); }
+.pop-confirm-msg { padding: 4px 10px 8px; font-size: 12px; color: var(--fg-dim); line-height: 1.4; }
+.pop-row { position: relative; display: flex; align-items: stretch; }
+.pop-row > .pop-item { flex: 1; padding-right: 28px; }
+.pop-row-trash {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fg-faint);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 80ms var(--ease), background 80ms var(--ease), color 80ms var(--ease);
+}
+.pop-row:hover .pop-row-trash,
+.pop-row-trash:focus-visible { opacity: 1; }
+.pop-row-trash:hover { background: var(--danger-soft); color: var(--danger); opacity: 1; }
+
+/* ==========================================================
+   FOLDERS MANAGER PAGE
+   ========================================================== */
+.folders-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.folders-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.folders-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--fg); }
+.folders-header .ghost { padding: 6px; min-width: 28px; min-height: 28px; justify-content: center; }
+.folders-create-row {
+  display: flex;
+  gap: 6px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+}
+.folders-create-row input { flex: 1; height: 34px; padding: 0 12px; font-size: 13px; }
+.folders-create-row .primary { height: 34px; padding: 0 12px; flex-shrink: 0; }
+.folders-mgmt-list {
+  list-style: none;
+  padding: 6px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.folder-mgmt-row {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.folder-mgmt-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  color: var(--fg-dim);
+}
+.folder-mgmt-main > svg:first-child { color: var(--fg-faint); flex-shrink: 0; }
+.folder-mgmt-name {
+  flex: 1;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-mgmt-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+  flex-shrink: 0;
+}
+.folder-mgmt-main .icon-only {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.folder-mgmt-trash:hover:not(:disabled) { color: var(--danger); background: var(--danger-soft); }
+.folder-mgmt-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--accent-soft);
+}
+.folder-mgmt-edit > svg:first-child { color: var(--accent); flex-shrink: 0; }
+.folder-mgmt-edit input { flex: 1; height: 30px; padding: 0 10px; font-size: 13px; }
+.folder-mgmt-edit button { height: 30px; padding: 0 10px; font-size: 12px; flex-shrink: 0; }
+.folder-mgmt-confirm {
+  padding: 10px 12px;
+  background: var(--danger-soft);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.folder-mgmt-confirm p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg);
+  line-height: 1.4;
+}
+.folder-mgmt-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.folder-mgmt-confirm-actions button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
 
 /* ==========================================================
    NOTES LIST
@@ -247,7 +406,7 @@ kbd {
 .notes-row {
   position: relative;
   padding: 12px 14px;
-  padding-right: 38px; /* room for the hover-only delete button */
+  padding-right: 14px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bg-1);
@@ -281,7 +440,16 @@ kbd {
   white-space: nowrap;
   flex: 1;
 }
-.notes-row-when { color: var(--fg-faint); font-size: 11px; font-family: var(--mono); flex-shrink: 0; }
+.notes-row-when {
+  color: var(--fg-faint);
+  font-size: 11px;
+  font-family: var(--mono);
+  flex-shrink: 0;
+  /* Timestamp lives in the same top-right slot as the hover actions —
+     fade it out when actions appear so they don't visually collide. */
+  transition: opacity var(--t-fast) var(--ease);
+}
+.notes-row:hover .notes-row-when { opacity: 0; }
 .notes-row-preview { color: var(--fg-dim); font-size: 12px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .notes-row-meta {
   display: flex;
@@ -386,40 +554,62 @@ kbd {
   flex-shrink: 0;
 }
 .editor-status-inline { flex: 1; color: var(--fg-faint); font-size: 11px; font-family: var(--mono); }
+.editor-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 16px 6px;
+  min-width: 0;
+}
 .editor-title {
-  margin: 14px 16px 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   border: none;
   background: transparent;
   padding: 0;
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .editor-title:focus { outline: none; box-shadow: none; }
 .tags-input {
-  margin: 0 16px;
+  /* In the title row: borderless, content-sized, right-aligned. Chips wrap
+     below the title input only if they truly overflow the row's width. */
+  margin: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--bg-2);
-  transition: border-color var(--t-fast) var(--ease);
-  flex-shrink: 0;
+  padding: 2px;
+  background: transparent;
+  flex: 0 1 auto;
+  max-width: 60%;
+  justify-content: flex-end;
 }
-.tags-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 .tags-input input {
-  flex: 1;
-  min-width: 100px;
+  flex: 0 1 auto;
+  width: 80px;
+  min-width: 60px;
   border: none;
   background: transparent;
-  padding: 4px 6px;
-  font-size: 12px;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  border-radius: var(--r-sm);
+  transition: background var(--t-fast) var(--ease);
 }
-.tags-input input:focus { outline: none; box-shadow: none; }
+.tags-input input::placeholder { color: var(--fg-faint); }
+.tags-input input:hover { background: var(--bg-hover); }
+.tags-input input:focus {
+  outline: none;
+  box-shadow: none;
+  background: var(--bg-2);
+  color: var(--fg);
+  width: 140px;
+}
 .tag-chip {
   display: inline-flex;
   align-items: center;
@@ -780,3 +970,112 @@ body.options { background: var(--bg); padding: 48px 32px; max-width: 760px; marg
   flex-shrink: 0;
 }
 
+
+/* ==========================================================
+   SORT TRIGGER + MODAL (auto-organize)
+   ========================================================== */
+.sort-trigger { flex: 0 0 auto; max-width: 180px; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  animation: fadeIn 120ms var(--ease);
+  overflow-y: auto;
+}
+.modal {
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modal-body h4 { margin: 0 0 10px; font-size: 12px; color: var(--fg-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.modal-loading { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 16px; color: var(--fg-dim); }
+.modal-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-2); }
+
+.organize-plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.organize-plan > li {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px;
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.organize-folder-name {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  background: var(--bg-1);
+}
+.organize-note-titles {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 0 0 4px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.organize-note-titles > li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.organize-note-titles > li::before { content: "·"; margin-right: 6px; color: var(--fg-faint); }
+
+/* ==========================================================
+   INLINE IMAGES (pasted via memex-media://)
+   ========================================================== */
+.rich-host .ProseMirror img.rich-img,
+.rich-host .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  margin: 8px 0;
+  display: block;
+}
+.rich-host .ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Auto-organize: highlight the target folder row */
+.organize-folder-target {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 6px 10px !important;
+}
+.organize-folder-target .pop-count { margin-left: auto; }

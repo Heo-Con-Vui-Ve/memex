@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@memex/shared": "workspace:*",
+    "@tiptap/extension-image": "^3.23.4",
     "@tiptap/extension-placeholder": "^3.23.4",
     "@tiptap/extension-task-item": "^3.23.4",
     "@tiptap/extension-task-list": "^3.23.4",
@@ -20,7 +21,8 @@
     "@tiptap/starter-kit": "^3.23.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "tiptap-markdown": "^0.9.0"
+    "tiptap-markdown": "^0.9.0",
+    "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "2.0.0-beta.28",
@@ -28,6 +30,7 @@
     "@types/chrome": "0.0.280",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
+    "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "4.3.3",
     "typescript": "5.6.3",
     "vite": "5.4.10"

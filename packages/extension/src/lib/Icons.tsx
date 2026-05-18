@@ -31,6 +31,7 @@ export const Icon = {
   Search: (p: IconProps) => svg({ ...p, children: (<><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>) }),
   Folder: (p: IconProps) => svg({ ...p, children: <path d="M4 4h6l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /> }),
   FolderPlus: (p: IconProps) => svg({ ...p, children: (<><path d="M4 4h6l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /><path d="M12 11v6" /><path d="M9 14h6" /></>) }),
+  FolderCog: (p: IconProps) => svg({ ...p, children: (<><path d="M4 4h6l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /><circle cx="13" cy="14" r="2.2" /><path d="M13 10.5v1.3M13 16.2v1.3M16.5 14h-1.3M10.8 14H9.5M15.5 11.5l-.95.95M11.5 16.5l-.95.95M15.5 16.5l-.95-.95M11.5 11.5l-.95-.95" /></>) }),
   Inbox: (p: IconProps) => svg({ ...p, children: (<><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>) }),
   Notes: (p: IconProps) => svg({ ...p, children: (<><path d="M4 4h12l4 4v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /><path d="M14 4v6h6" /></>) }),
   Chat: (p: IconProps) => svg({ ...p, children: <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z" /> }),

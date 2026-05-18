@@ -69,6 +69,25 @@ export interface NotesSearchPayload {
   limit?: number;
 }
 
+// --- Media (image attachments) ---
+
+/**
+ * Media items live as files on the host (`<dataDir>/media/<id>.<ext>`). The
+ * extension paste flow saves them via media.save, then stores the resulting
+ * id back into the note's markdown using a `memex-media://<id>` URL scheme.
+ * Display: tiptap fetches the bytes via media.get and renders an inline data
+ * URL. AI: the host's claudeProvider rewrites those tokens to absolute file
+ * paths + adds the media dir via `--add-dir` so claude can Read them.
+ */
+export interface MediaSavePayload {
+  /** Base64 (no `data:` prefix). */
+  dataBase64: string;
+  /** Lowercase extension without the dot (png/jpg/gif/webp). */
+  ext: string;
+}
+export interface MediaGetPayload { id: string; }
+export interface MediaDeletePayload { id: string; }
+
 // --- Tags ---
 
 export interface TagRow {
@@ -100,8 +119,12 @@ export interface FoldersRenamePayload {
 }
 export interface FoldersDeletePayload {
   id: string;
-  /** If true: notes in this folder become unsorted (folderId=null). If false and folder has notes, error. */
-  reassignToRoot?: boolean;
+  /**
+   * How to handle notes that live inside the folder.
+   * - "unsort" (default): notes survive, their folderId is set to null
+   * - "delete-notes": notes inside the folder are deleted too
+   */
+  mode?: "unsort" | "delete-notes";
 }
 
 // --- AI jobs (persistent) ---
@@ -122,6 +145,9 @@ export type HostRequest =
   | { requestId: string; type: "notes.search"; payload: NotesSearchPayload }
   | { requestId: string; type: "ai-jobs.list"; payload: AiJobsListPayload }
   | { requestId: string; type: "tags.list"; payload: TagsListPayload }
+  | { requestId: string; type: "media.save"; payload: MediaSavePayload }
+  | { requestId: string; type: "media.get"; payload: MediaGetPayload }
+  | { requestId: string; type: "media.delete"; payload: MediaDeletePayload }
   | { requestId: string; type: "folders.list"; payload: FoldersListPayload }
   | { requestId: string; type: "folders.create"; payload: FoldersCreatePayload }
   | { requestId: string; type: "folders.rename"; payload: FoldersRenamePayload }
@@ -164,6 +190,9 @@ export type HostResponse =
   | { requestId: string; type: "notes.search.result"; notes: NoteRow[] }
   | { requestId: string; type: "ai-jobs.list.result"; jobs: AiJobRow[] }
   | { requestId: string; type: "tags.list.result"; tags: TagRow[] }
+  | { requestId: string; type: "media.save.result"; id: string; mimeType: string }
+  | { requestId: string; type: "media.get.result"; dataBase64: string; mimeType: string }
+  | { requestId: string; type: "media.delete.result"; deleted: boolean }
   | { requestId: string; type: "folders.list.result"; folders: FolderRow[] }
   | { requestId: string; type: "folders.create.result"; folder: FolderRow }
   | { requestId: string; type: "folders.rename.result"; folder: FolderRow }

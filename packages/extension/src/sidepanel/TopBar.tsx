@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { FolderRow, TagRow } from "@memex/shared";
+import type { TagRow, FolderRow } from "@memex/shared";
 import { Icon } from "../lib/Icons";
-import { is, request } from "../lib/rpc";
 import { useT } from "../lib/i18n";
+
+export type SortKey = "updated" | "created" | "az" | "za";
 
 interface Props {
   query: string;
@@ -13,24 +14,30 @@ interface Props {
   tags: TagRow[];
   tagFilter: string | null;
   onTagFilter: (v: string | null) => void;
+  sortKey: SortKey;
+  onSortKey: (v: SortKey) => void;
   onNew: () => void;
   onCaptureSelection: () => void;
   onCaptureWholePage: () => void;
   onRecordMeet: () => void;
+  onAutoOrganize: () => void;
   onFoldersChanged: () => void;
+  /** Open the dedicated folder management page. */
+  onManageFolders: () => void;
 }
 
 export function TopBar(p: Props) {
   const tr = useT();
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
-  async function createFolder() {
-    const name = prompt(tr.folderName)?.trim();
-    if (!name) return;
-    await request({ type: "folders.create", payload: { name } }, is.folderCreated);
-    p.onFoldersChanged();
-  }
+  const sortLabels: Record<SortKey, string> = {
+    updated: tr.sortUpdated,
+    created: tr.sortCreated,
+    az: tr.sortAz,
+    za: tr.sortZa,
+  };
 
   const currentLabel =
     p.folderFilter === "all"
@@ -74,15 +81,19 @@ export function TopBar(p: Props) {
                 </button>
                 {p.folders.length > 0 && <div className="pop-sep" />}
                 {p.folders.map((f) => (
-                  <button key={f.id} className={"pop-item" + (p.folderFilter === f.id ? " is-active" : "")} onClick={() => { p.onFolderFilter(f.id); setFolderMenuOpen(false); }}>
+                  <button
+                    key={f.id}
+                    className={"pop-item" + (p.folderFilter === f.id ? " is-active" : "")}
+                    onClick={() => { p.onFolderFilter(f.id); setFolderMenuOpen(false); }}
+                  >
                     <Icon.Folder size={12} />
                     {f.name}
                     <span className="pop-count">{f.noteCount}</span>
                   </button>
                 ))}
                 <div className="pop-sep" />
-                <button className="pop-item" onClick={() => { setFolderMenuOpen(false); void createFolder(); }}>
-                  <Icon.FolderPlus size={12} /> {tr.newFolder}
+                <button className="pop-item" onClick={() => { setFolderMenuOpen(false); p.onManageFolders(); }}>
+                  <Icon.FolderPlus size={12} /> {tr.manageFolders}
                 </button>
               </div>
             </>
@@ -117,23 +128,56 @@ export function TopBar(p: Props) {
           )}
         </div>
 
-        <button className="primary new-btn" onClick={p.onNew} title={tr.newNote}>
-          <Icon.Plus size={14} /> {tr.newBtn}
+        <div className="folder-pop">
+          <button
+            className="folder-trigger sort-trigger"
+            onClick={() => setSortMenuOpen((o) => !o)}
+            title={tr.sort}
+          >
+            ↕ {sortLabels[p.sortKey]}
+          </button>
+          {sortMenuOpen && (
+            <>
+              <div className="pop-backdrop" onClick={() => setSortMenuOpen(false)} />
+              <div className="pop">
+                {(Object.keys(sortLabels) as SortKey[]).map((k) => (
+                  <button
+                    key={k}
+                    className={"pop-item" + (p.sortKey === k ? " is-active" : "")}
+                    onClick={() => { p.onSortKey(k); setSortMenuOpen(false); }}
+                  >
+                    {sortLabels[k]}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <button className="primary new-btn" onClick={p.onNew} title={tr.newNote} aria-label={tr.newNote}>
+          <Icon.Plus size={14} />
+        </button>
+
+        <button className="icon-only ghost" onClick={p.onManageFolders} title={tr.manageFolders} aria-label={tr.manageFolders}>
+          <Icon.FolderCog size={13} />
         </button>
 
         {/* Quick actions inline. flex-wrap on .filter-row lets them flow to
             a second line on very narrow widths instead of getting hidden. */}
+        <button className="icon-only ghost" onClick={p.onAutoOrganize} title={tr.autoOrganizeTitle} aria-label={tr.autoOrganize}>
+          <Icon.Sparkles size={13} />
+        </button>
         <button className="icon-only ghost" onClick={p.onCaptureSelection} title={tr.saveSelectedText} aria-label={tr.saveSelectedText}>
-          <Icon.Inbox size={14} />
+          <Icon.Inbox size={13} />
         </button>
         <button className="icon-only ghost" onClick={p.onCaptureWholePage} title={tr.saveWholePage} aria-label={tr.saveWholePage}>
-          <Icon.Notes size={14} />
+          <Icon.Notes size={13} />
         </button>
         <button className="icon-only ghost" onClick={p.onRecordMeet} title={tr.recordMeeting} aria-label={tr.recordMeeting}>
-          <Icon.Mic size={14} />
+          <Icon.Mic size={13} />
         </button>
         <button className="icon-only ghost" onClick={() => chrome.runtime.openOptionsPage()} title={tr.settings} aria-label={tr.settings}>
-          <Icon.Command size={14} />
+          <Icon.Command size={13} />
         </button>
       </div>
     </header>

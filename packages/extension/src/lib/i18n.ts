@@ -19,9 +19,10 @@ export function getLang(): Lang {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === "vi" || raw === "en") return raw;
   } catch {}
-  // Best-effort first-run guess from the browser locale; default to vi.
-  const nav = typeof navigator !== "undefined" ? navigator.language : "vi";
-  return nav.toLowerCase().startsWith("vi") ? "vi" : "en";
+  // Default to Vietnamese on first run regardless of browser locale —
+  // primary audience is Vietnamese; the picker in Options is right there
+  // for non-vi users.
+  return "vi";
 }
 
 export function setLang(lang: Lang): void {
@@ -66,6 +67,18 @@ interface Strings {
   newBtn: string;
   newFolder: string;
   folderName: string;
+  deleteFolder: string;
+  deleteFolderConfirm: (name: string, count: number) => string;
+  deleteFolderAndNotes: string;
+  deleteFolderKeepNotes: string;
+  manageFolders: string;
+  foldersPageTitle: string;
+  foldersEmpty: string;
+  foldersEmptyHint: string;
+  foldersCreatePlaceholder: string;
+  foldersNoteCount: (n: number) => string;
+  renameFolder: string;
+  save: string;
   more: string;
   saveSelectedText: string;
   saveWholePage: string;
@@ -80,6 +93,28 @@ interface Strings {
   noFilterMatches: string;
   noFilterMatchesHint: string;
   clearFilters: string;
+  // sort
+  sort: string;
+  sortUpdated: string;
+  sortCreated: string;
+  sortAz: string;
+  sortZa: string;
+  // auto organize (AI folder suggestions)
+  autoOrganize: string;
+  autoOrganizeTitle: string;
+  autoOrganizeRunning: string;
+  autoOrganizePlanHeader: string;
+  autoOrganizeAccept: string;
+  autoOrganizeCancel: string;
+  autoOrganizeNoNotes: string;
+  autoOrganizeParseErr: string;
+  autoOrganizeApplying: string;
+  autoOrganizeDone: (folders: number, notes: number) => string;
+  autoOrganizeDoneAssign: (notes: number) => string;
+  autoOrganizeFolderCount: (count: number) => string;
+  autoOrganizeNoFolders: string;
+  autoOrganizeNoUnsorted: string;
+  autoOrganizeNoFit: string;
   // capture errors
   errPageUnreadable: string;
   errNoSelection: string;
@@ -208,6 +243,21 @@ const en: Strings = {
   newBtn: "New",
   newFolder: "New folder",
   folderName: "Folder name?",
+  deleteFolder: "Delete folder",
+  deleteFolderConfirm: (name, count) =>
+    count === 0
+      ? `Delete folder "${name}"?`
+      : `"${name}" has ${count} note${count === 1 ? "" : "s"}. How should they be handled?`,
+  deleteFolderAndNotes: "Delete folder & notes",
+  deleteFolderKeepNotes: "Delete folder, keep notes",
+  manageFolders: "Manage folders",
+  foldersPageTitle: "Folders",
+  foldersEmpty: "No folders yet",
+  foldersEmptyHint: "Create a folder below to start organizing.",
+  foldersCreatePlaceholder: "New folder name",
+  foldersNoteCount: (n) => `${n} note${n === 1 ? "" : "s"}`,
+  renameFolder: "Rename",
+  save: "Save",
   more: "More",
   saveSelectedText: "Save selected text",
   saveWholePage: "Save whole page",
@@ -221,6 +271,26 @@ const en: Strings = {
   noFilterMatches: "No notes match this filter",
   noFilterMatchesHint: "Try a different folder or tag — or clear filters to see everything.",
   clearFilters: "Clear filters",
+  sort: "Sort",
+  sortUpdated: "Recently updated",
+  sortCreated: "Recently created",
+  sortAz: "Title A → Z",
+  sortZa: "Title Z → A",
+  autoOrganize: "Auto-organize",
+  autoOrganizeTitle: "AI-organize notes into folders",
+  autoOrganizeRunning: "Analyzing notes…",
+  autoOrganizePlanHeader: "Proposed folder structure",
+  autoOrganizeAccept: "Apply",
+  autoOrganizeCancel: "Cancel",
+  autoOrganizeNoNotes: "Need at least 2 notes to organize.",
+  autoOrganizeParseErr: "Could not parse AI response. Try again.",
+  autoOrganizeApplying: "Moving notes into folders…",
+  autoOrganizeDone: (folders, notes) => `Created ${folders} folder${folders === 1 ? "" : "s"}, moved ${notes} note${notes === 1 ? "" : "s"}.`,
+  autoOrganizeDoneAssign: (notes) => `Assigned ${notes} note${notes === 1 ? "" : "s"} to existing folders.`,
+  autoOrganizeFolderCount: (count) => `${count} note${count === 1 ? "" : "s"}`,
+  autoOrganizeNoFolders: "Create at least one folder first — auto-organize assigns notes into folders you already have.",
+  autoOrganizeNoUnsorted: "Every note is already in a folder. Nothing to assign.",
+  autoOrganizeNoFit: "The AI didn't find a confident match for any unsorted note. Try creating more thematic folders first.",
   errPageUnreadable: "Couldn't read this page (try refreshing it).",
   errNoSelection: "No text selected on the current page.",
   errPageEmpty: "Page has no readable text.",
@@ -354,6 +424,21 @@ const vi: Strings = {
   newBtn: "Tạo",
   newFolder: "Thư mục mới",
   folderName: "Tên thư mục?",
+  deleteFolder: "Xoá thư mục",
+  deleteFolderConfirm: (name, count) =>
+    count === 0
+      ? `Xoá thư mục "${name}"?`
+      : `Thư mục "${name}" có ${count} note. Bạn muốn xử lý thế nào?`,
+  deleteFolderAndNotes: "Xoá cả thư mục & note",
+  deleteFolderKeepNotes: "Chỉ xoá thư mục, giữ note",
+  manageFolders: "Quản lý thư mục",
+  foldersPageTitle: "Thư mục",
+  foldersEmpty: "Chưa có thư mục nào",
+  foldersEmptyHint: "Tạo một thư mục bên dưới để bắt đầu sắp xếp.",
+  foldersCreatePlaceholder: "Tên thư mục mới",
+  foldersNoteCount: (n) => `${n} note`,
+  renameFolder: "Đổi tên",
+  save: "Lưu",
   more: "Thêm",
   saveSelectedText: "Lưu phần đã chọn",
   saveWholePage: "Lưu cả trang",
@@ -367,6 +452,26 @@ const vi: Strings = {
   noFilterMatches: "Không có note nào khớp filter",
   noFilterMatchesHint: "Thử folder hoặc tag khác — hoặc clear filter để xem toàn bộ.",
   clearFilters: "Clear filter",
+  sort: "Sắp xếp",
+  sortUpdated: "Mới cập nhật",
+  sortCreated: "Mới tạo",
+  sortAz: "Tiêu đề A → Z",
+  sortZa: "Tiêu đề Z → A",
+  autoOrganize: "Tự sắp xếp",
+  autoOrganizeTitle: "Để AI gom note vào các thư mục",
+  autoOrganizeRunning: "Đang phân tích note…",
+  autoOrganizePlanHeader: "Đề xuất cấu trúc thư mục",
+  autoOrganizeAccept: "Áp dụng",
+  autoOrganizeCancel: "Huỷ",
+  autoOrganizeNoNotes: "Cần ít nhất 2 note để sắp xếp.",
+  autoOrganizeParseErr: "Không parse được phản hồi AI. Thử lại.",
+  autoOrganizeApplying: "Đang di chuyển note vào folder…",
+  autoOrganizeDone: (folders, notes) => `Đã tạo ${folders} folder, di chuyển ${notes} note.`,
+  autoOrganizeDoneAssign: (notes) => `Đã xếp ${notes} note vào folder có sẵn.`,
+  autoOrganizeFolderCount: (count) => `${count} note`,
+  autoOrganizeNoFolders: "Tạo ít nhất một folder trước — auto-organize chỉ xếp note vào folder có sẵn, không tạo folder mới.",
+  autoOrganizeNoUnsorted: "Mọi note đều đã ở trong folder. Không có gì để xếp.",
+  autoOrganizeNoFit: "AI không tìm được folder phù hợp cho bất kỳ note nào. Tạo thêm folder theo chủ đề rõ ràng hơn thử nhé.",
   errPageUnreadable: "Không đọc được trang này (thử reload).",
   errNoSelection: "Chưa chọn đoạn text nào trên trang.",
   errPageEmpty: "Trang không có nội dung text.",

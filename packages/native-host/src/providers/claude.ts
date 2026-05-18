@@ -1,13 +1,39 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { AiProvider } from "./types.js";
+import { getMediaDir } from "../paths.js";
+import { mediaPathIfExists } from "../media.js";
+
+/**
+ * Pre-process: rewrite every `memex-media://<id>` reference in the prompt
+ * to the absolute file path on disk, and surface a small hint so the model
+ * knows to actually open them with its Read tool.
+ *
+ * Returns the rewritten prompt plus any extra args claude needs (`--add-dir`
+ * to grant Read access to the media directory).
+ */
+function resolveMediaRefs(prompt: string): { prompt: string; extraArgs: string[] } {
+  const tokenRe = /!\[([^\]]*)\]\(memex-media:\/\/([^)]+)\)/g;
+  const resolvedPaths = new Set<string>();
+  const rewritten = prompt.replace(tokenRe, (_match, alt: string, id: string) => {
+    const full = mediaPathIfExists(id);
+    if (!full) return `_[image unavailable: ${alt}]_`;
+    resolvedPaths.add(full);
+    return `![${alt}](${full})`;
+  });
+  if (resolvedPaths.size === 0) return { prompt: rewritten, extraArgs: [] };
+  const list = Array.from(resolvedPaths).map((p) => `- ${p}`).join("\n");
+  const hint = `\n\n---\n**Image attachments**\nThe note above references ${resolvedPaths.size} image${resolvedPaths.size === 1 ? "" : "s"} stored locally. Open each path with your Read tool to analyze the actual image content before responding:\n${list}\n`;
+  return { prompt: rewritten + hint, extraArgs: ["--add-dir", getMediaDir()] };
+}
 
 export const claudeProvider: AiProvider = {
   name: "claude",
   stream(prompt, signal, cb) {
     const start = Date.now();
+    const { prompt: finalPrompt, extraArgs } = resolveMediaRefs(prompt);
     let child: ChildProcessWithoutNullStreams;
     try {
-      child = spawn("claude", ["--print"], { stdio: ["pipe", "pipe", "pipe"], env: process.env });
+      child = spawn("claude", ["--print", ...extraArgs], { stdio: ["pipe", "pipe", "pipe"], env: process.env });
     } catch (err) {
       cb.onError("INTERNAL", `Failed to spawn claude: ${(err as Error).message}`);
       return;
@@ -50,7 +76,7 @@ export const claudeProvider: AiProvider = {
       }
     });
     try {
-      child.stdin.end(prompt, "utf8");
+      child.stdin.end(finalPrompt, "utf8");
     } catch (err) {
       if (!settled) {
         settled = true;

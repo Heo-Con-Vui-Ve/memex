@@ -172,7 +172,7 @@ describe("search (FTS5)", () => {
 });
 
 describe("folders", () => {
-  it("creates, lists, renames, and deletes (with reassignToRoot)", () => {
+  it("creates, lists, renames, and deletes (unsort mode keeps notes)", () => {
     const a = createFolder("Inbox");
     const b = createFolder("Archive");
     expect(listFolders().map((f) => f.name).sort()).toEqual(["Archive", "Inbox"]);
@@ -181,13 +181,20 @@ describe("folders", () => {
     expect(renamed.name).toBe("Triage");
 
     const note = upsertNote(freshNote({ folderId: a.id }));
-    // Without reassign, the FK ON DELETE CASCADE removes the notes too.
-    // With reassign, notes move to root before delete.
-    expect(deleteFolder(a.id, true)).toBe(true);
+    expect(deleteFolder(a.id, "unsort")).toBe(true);
     expect(getNote(note.id)?.folderId).toBeNull();
 
     expect(listFolders().map((f) => f.name)).toEqual(["Archive"]);
     expect(deleteFolder(b.id)).toBe(true);
+  });
+
+  it("delete-notes mode wipes member notes alongside the folder", () => {
+    const f = createFolder("Scratch");
+    const inside = upsertNote(freshNote({ folderId: f.id }));
+    const outside = upsertNote(freshNote({ folderId: null }));
+    expect(deleteFolder(f.id, "delete-notes")).toBe(true);
+    expect(getNote(inside.id)).toBeNull();
+    expect(getNote(outside.id)).not.toBeNull();
   });
 
   it("noteCount reflects assigned notes", () => {

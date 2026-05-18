@@ -138,17 +138,18 @@ export function Editor({ note, folders, onBack, onSaved, onDeleted }: Props) {
         </div>
       </header>
 
-      <input
-        className="editor-title"
-        value={title}
-        onChange={(e) => { setTitle(e.target.value); scheduleSave(); }}
-        placeholder={tr.untitled}
-      />
-
-      <TagsInput
-        tags={tags}
-        onChange={(t) => { setTags(t); scheduleSave(); }}
-      />
+      <div className="editor-title-row">
+        <input
+          className="editor-title"
+          value={title}
+          onChange={(e) => { setTitle(e.target.value); scheduleSave(); }}
+          placeholder={tr.untitled}
+        />
+        <TagsInput
+          tags={tags}
+          onChange={(t) => { setTags(t); scheduleSave(); }}
+        />
+      </div>
 
       <RichEditor
         ref={editorRef}

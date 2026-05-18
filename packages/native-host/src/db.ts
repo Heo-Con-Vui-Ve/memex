@@ -376,10 +376,17 @@ export function renameFolder(id: string, name: string): FolderRow {
   return folderRowToApi(d, row);
 }
 
-export function deleteFolder(id: string, reassignToRoot = false): boolean {
+export function deleteFolder(
+  id: string,
+  mode: "unsort" | "delete-notes" = "unsort",
+): boolean {
   const d = openDb();
   const tx = d.transaction(() => {
-    if (reassignToRoot) {
+    if (mode === "delete-notes") {
+      // Wipe member notes first; ON DELETE CASCADE on note_tags handles the
+      // tag rows. notes_ad trigger keeps the FTS mirror in sync.
+      d.prepare("DELETE FROM notes WHERE folder_id = ?").run(id);
+    } else {
       d.prepare("UPDATE notes SET folder_id = NULL WHERE folder_id = ?").run(id);
     }
     return d.prepare("DELETE FROM folders WHERE id = ?").run(id).changes;
