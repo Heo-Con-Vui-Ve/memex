@@ -1,4 +1,4 @@
-import type { HostRequest, HostResponse } from "@memex/shared";
+import type { HostRequest, HostResponse, NoteRow } from "@memex/shared";
 import { HOST_NAME } from "@memex/shared";
 
 /**
@@ -82,4 +82,81 @@ chrome.runtime.onInstalled.addListener(() => {
   try {
     ensureNativePort();
   } catch {}
+});
+
+// --- Meet recorder integrations -------------------------------------------
+// The Meet content script broadcasts lifecycle events via chrome.runtime
+// sendMessage. We listen here for two purposes:
+//   1. Show a "REC" badge on the toolbar icon while a capture is active, so
+//      the user has a visible reminder that the recorder is running even
+//      after they close the side panel.
+//   2. Persist the in-progress transcript if the tab unloads without the
+//      user having pressed Stop & Save — the failsafe that lets recording
+//      run in the background.
+const REC_BADGE_TEXT = "REC";
+const REC_BADGE_BG = "#e11d48";
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || typeof msg !== "object") return false;
+
+  if (msg.type === "meet:started") {
+    const tabId = sender.tab?.id;
+    if (tabId != null) {
+      void chrome.action.setBadgeBackgroundColor({ color: REC_BADGE_BG, tabId }).catch(() => {});
+      void chrome.action.setBadgeText({ text: REC_BADGE_TEXT, tabId }).catch(() => {});
+    }
+    return false;
+  }
+
+  if (msg.type === "meet:ended") {
+    const tabId = sender.tab?.id;
+    if (tabId != null) {
+      void chrome.action.setBadgeText({ text: "", tabId }).catch(() => {});
+    }
+    return false;
+  }
+
+  if (msg.type === "meet:autosave") {
+    // Build a NoteRow shaped payload directly — we can't import models.ts's
+    // newNote because the SW environment is fine with it but we want to
+    // keep the payload shape obvious here for diagnostics if a save fails.
+    const now = Date.now();
+    const note: NoteRow = {
+      id: crypto.randomUUID(),
+      title: String(msg.title || "Meeting"),
+      contentMd: String(msg.contentMd || ""),
+      folderId: null,
+      tags: ["meeting"],
+      sourceUrl: msg.sourceUrl ? String(msg.sourceUrl) : null,
+      sourceTitle: String(msg.title || "Meeting"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    try {
+      const host = ensureNativePort();
+      const requestId = crypto.randomUUID();
+      // Don't register an owner — the native-host response will be dropped
+      // by the onMessage handler (its early return on missing owner). That
+      // is intentional: this is a fire-and-forget save with no UI to update.
+      const req: HostRequest = {
+        requestId,
+        type: "notes.upsert",
+        payload: { note },
+      };
+      host.postMessage(req);
+    } catch {
+      // SW will retry the native port on its next request; nothing useful
+      // to surface from here since the originating tab is already unloading.
+    }
+    // Also clear the badge if the tab is about to die — the meet:ended that
+    // would normally clear it fires in the same tick but might race.
+    const tabId = sender.tab?.id;
+    if (tabId != null) {
+      void chrome.action.setBadgeText({ text: "", tabId }).catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  return false;
 });

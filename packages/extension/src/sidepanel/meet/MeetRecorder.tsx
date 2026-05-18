@@ -141,7 +141,27 @@ export function MeetRecorder({ onBack, onSaved }: Props) {
   const orderedSegments = useMemo(() => {
     const all = [...finals, ...Array.from(live.values())];
     all.sort((a, b) => a.startedAt - b.startedAt);
-    return all;
+    // Collapse consecutive segments from the same speaker into one bubble.
+    // Meet emits a fresh caption block for every ~1s of refinement, and
+    // sometimes a bare "<Speaker Name>" block between utterances — both
+    // produce visual noise that maps to a single human turn.
+    const merged: CaptionSegment[] = [];
+    for (const s of all) {
+      const cleanedText = cleanFragment(s.text, s.speaker);
+      if (!cleanedText) continue;
+      const prev = merged[merged.length - 1];
+      if (prev && prev.speaker === s.speaker) {
+        const joined = mergeText(prev.text, cleanedText);
+        if (joined !== prev.text) {
+          // Keep the earlier id so the bubble doesn't jump in the DOM when
+          // a new live delta arrives that we just absorbed.
+          merged[merged.length - 1] = { ...prev, text: joined };
+        }
+      } else {
+        merged.push({ ...s, text: cleanedText });
+      }
+    }
+    return merged;
   }, [finals, live]);
 
   async function startRecording() {
@@ -151,7 +171,18 @@ export function MeetRecorder({ onBack, onSaved }: Props) {
       // to start. Idempotent — duplicate injection is harmless because the
       // script module-init is a no-op past the first run (browser de-dupes).
       await ensureMeetContentScript(phase.tabId);
-      await chrome.tabs.sendMessage(phase.tabId, { type: "meet:start" });
+      // Pass localized headings so the autosave fallback path (fires when
+      // the user closes the Meet tab without coming back to press Save)
+      // produces a note in the same locale as the manual save path.
+      await chrome.tabs.sendMessage(phase.tabId, {
+        type: "meet:start",
+        headings: {
+          noteHeading: tr.meetNoteHeading,
+          transcriptHeading: tr.meetTranscriptHeading,
+          noteEmpty: tr.meetNoteEmpty,
+          fallbackTitle: tr.meetFallbackTitle,
+        },
+      });
       setFinals([]);
       setLive(new Map());
       setPhase({ kind: "recording", tabId: phase.tabId, tabUrl: phase.tabUrl, meetingTitle: phase.meetingTitle, startedAt: Date.now(), detected: false });
@@ -372,4 +403,33 @@ function renderMarkdown(input: {
     }
   }
   return lines.join("\n");
+}
+
+/** Drop fragments that are just the speaker name (volatile name-only blocks
+ *  Meet renders briefly between utterances). */
+function cleanFragment(text: string, speaker: string): string {
+  const t = text.trim();
+  if (!t) return "";
+  if (t.toLowerCase() === speaker.toLowerCase()) return "";
+  // Sometimes the block emits "Speaker Name" as a prefix to nothing.
+  const stripped = t.replace(new RegExp(`^${escapeRegExp(speaker)}\\s*`, "i"), "").trim();
+  if (!stripped && t.length < 40) return "";
+  return t;
+}
+
+/** Live captions refine in-place: a later snapshot is often a superset of
+ *  the earlier one. Prefer the superset when one contains the other; else
+ *  concatenate with a space. */
+function mergeText(prev: string, next: string): string {
+  if (next === prev) return prev;
+  if (next.startsWith(prev)) return next;
+  if (prev.startsWith(next)) return prev;
+  // Pick the join character based on whether prev ends with a sentence
+  // terminator — avoids "...done. .Em có..." double-space artefacts.
+  const sep = /[.!?…。？！]$/.test(prev) ? " " : " ";
+  return prev + sep + next;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
